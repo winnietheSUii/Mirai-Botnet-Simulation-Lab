@@ -1,7 +1,6 @@
 # Mirai Source Code
 ---
 
-
 ## 🔧 Requirements
 
 Before building and running this code, ensure you have the following installed on a **Linux host**:
