@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REDXBLUE // Mirai C2 Dashboard & Cyber Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="glow-bg"></div>
+
+    <header>
+        <div class="logo">
+            <span class="red-text">RED</span><span class="white-text">X</span><span class="blue-text">BLUE</span>
+            <span class="subtitle">// BOTNET CONTROL PANEL</span>
+        </div>
+        <div class="system-status">
+            SYSTEM STATUS: <span id="sys-mode" class="status-badge mock">OFFLINE SIMULATION (MOCK)</span>
+        </div>
+    </header>
+
+    <main class="grid-container">
+        <!-- Panel 1: Target List (Red Team Interface) -->
+        <section class="panel target-panel">
+            <h2><span class="accent-red">⚡</span> CHOOSE ATTACK TARGET</h2>
+            <p class="description">Command your botnet forces to target specific IP subnets representing different countries.</p>
+            
+            <div class="target-cards">
+                <div class="card target-card" data-ip="203.0.113.100" data-name="Singapore Server 🇸🇬">
+                    <div class="flag">🇸🇬</div>
+                    <h3>Target Singapore</h3>
+                    <p class="ip-addr">IP: 203.0.113.100</p>
+                    <span class="role">Data Center Subnet</span>
+                    <button class="btn btn-attack" onclick="launchAttack('203.0.113.100', 'Singapore Server 🇸🇬')">LAUNCH DDOS</button>
+                </div>
+
+                <div class="card target-card" data-ip="210.89.0.100" data-name="South Korea Server 🇰🇷">
+                    <div class="flag">🇰🇷</div>
+                    <h3>Target South Korea</h3>
+                    <p class="ip-addr">IP: 210.89.0.100</p>
+                    <span class="role">E-Commerce Subnet</span>
+                    <button class="btn btn-attack" onclick="launchAttack('210.89.0.100', 'South Korea Server 🇰🇷')">LAUNCH DDOS</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 2: Live Threat Threat Map / Statistics -->
+        <section class="panel map-panel">
+            <h2><span class="accent-cyan">🌐</span> GLOBAL INFECTION MAP & STATS</h2>
+            
+            <div class="map-container">
+                <!-- Virtual Interactive Attack Simulation Screen -->
+                <div class="cyber-map" id="map-canvas">
+                    <!-- TH Node -->
+                    <div class="map-node node-th" style="top: 65%; left: 35%;">
+                        <span class="radar-pulse"></span>
+                        <div class="node-label">TH 🇹🇭</div>
+                    </div>
+                    <!-- US Node -->
+                    <div class="map-node node-us" style="top: 30%; left: 80%;">
+                        <span class="radar-pulse"></span>
+                        <div class="node-label">USA 🇺🇸</div>
+                    </div>
+                    <!-- JP Node -->
+                    <div class="map-node node-jp" style="top: 40%; left: 55%;">
+                        <span class="radar-pulse"></span>
+                        <div class="node-label">JP 🇯🇵</div>
+                    </div>
+                    <!-- SG Target -->
+                    <div class="map-node node-sg target" style="top: 75%; left: 40%;">
+                        <span class="radar-pulse target"></span>
+                        <div class="node-label">SG 🇸🇬</div>
+                    </div>
+                    <!-- KR Target -->
+                    <div class="map-node node-kr target" style="top: 45%; left: 48%;">
+                        <span class="radar-pulse target"></span>
+                        <div class="node-label">KR 🇰🇷</div>
+                    </div>
+                    <!-- Attack Beam Line Elements (controlled via JS) -->
+                    <svg class="attack-lines" id="svg-lines"></svg>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <span class="label">Total Bots Connected</span>
+                    <span class="value cyan-text" id="total-bots-count">0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="label">Active Attack Threads</span>
+                    <span class="value red-text" id="active-attacks-count">0</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 3: Zombie Botnet List (Vulnerable IoT Nodes) -->
+        <section class="panel bot-list-panel">
+            <h2><span class="accent-green">🧟</span> ZOMBIE BOTS (INFECTED)</h2>
+            <div class="bot-list-container">
+                <table class="bot-table">
+                    <thead>
+                        <tr>
+                            <th>IP Address</th>
+                            <th>Country</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bot-table-body">
+                        <!-- Dynamic content -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Panel 4: Terminal Console & IDS Alerts (Blue/Red Log) -->
+        <section class="panel log-panel">
+            <h2><span class="accent-yellow">⌨️</span> C2 TERMINAL LOGS & NETWORK ACTIVITY</h2>
+            <div class="terminal-container">
+                <div class="terminal-header">
+                    <span>bash - mirai_cnc@attacker</span>
+                    <span class="window-buttons">● ● ●</span>
+                </div>
+                <div class="terminal-body" id="terminal-logs">
+                    <div class="log-line text-green">[SYSTEM] C2 Command Line Interface Initialized. Waiting for connection...</div>
+                    <div class="log-line text-cyan">[SYSTEM] Fetching connected bot clusters...</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Cybersecurity Officer Module 240-353 | Group Work Assignment 1/2569</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
