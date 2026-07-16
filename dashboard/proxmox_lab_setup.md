@@ -8,134 +8,76 @@ This guide provides step-by-step instructions to design and provision a **produc
 
 ## 📐 Network & Architecture Topology
 
-We segment the laboratory into 6 isolated VLAN subnets using a single Virtual Switch (`vmbr1`) in Proxmox and a virtualized **pfSense** router.
+We segment the laboratory into isolated VLAN subnets using a single Virtual Switch (`vmbr1`) in Proxmox and a virtualized **pfSense** router.
 
-```
-                      +-------------------+
-                      |   Proxmox Host    |
-                      |   (Bridge vmbr1)  |
-                      +---------+---------+
-                                |
-                      +---------v---------+
-                      |   pfSense VM      | (Router / Firewall / DHCP)
-                      |   Routing Engine  |
-                      +----+--+-+--+----+--+
-                           |  | |  |    |
-       +-------------------+  | |  |    +-------------------+
-       |                      | |  +-----------------+      |
-       |                      | |                    |      |
-+------v------+         +-----v-v-----+        +-----v------+
-| Attacker C2 |         | Corp A LAN  |        | Target SG  |
-|  (VLAN 10)  |         |  (VLAN 20)  |        |  (VLAN 40) |
-| 185.10.20.0 |         |110.164.20.0 |        |203.0.113.0 |
-+-------------+         +-------------+        +------------+
-       |                      |                      |
-+------v------+         +-----v-----+          +-----v-----+
-|   Loader    |         | Corp B LAN|          | Target KR  |
-|  (VLAN 15)  |         |  (VLAN 30)|          |  (VLAN 50) |
-| 185.10.30.0 |         |66.249.64.0|          |210.89.0.0  |
-+-------------+         +-----------+          +------------+
-```
-
-| Network Zone | Role / Description | VLAN Tag | Subnet | Gateway IP | Node IP Range |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Attacker C2** | Hacker Control Center & Web UI | **10** | `185.10.20.0/24` | `185.10.20.1` | `185.10.20.100` |
-| **Loader Server** | Binary Delivery Web Host | **15** | `185.10.30.0/24` | `185.10.30.1` | `185.10.30.100` |
-| **Corp A (TH 🇹🇭)** | Infected IoT Nodes Cluster 1 | **20** | `110.164.20.0/24` | `110.164.20.1` | `110.164.20.11` to `.12` |
-| **Corp B (US 🇺🇸)** | Infected IoT Nodes Cluster 2 | **30** | `66.249.64.0/24` | `66.249.64.1` | `66.249.64.11` to `.12` |
-| **Target SG (🇸🇬)** | Public Cloud Web Server Target | **40** | `203.0.113.0/24` | `203.0.113.1` | `203.0.113.100` |
-| **Target KR (🇰🇷)** | E-Commerce Server Target | **50** | `210.89.0.0/24` | `210.89.0.1` | `210.89.0.100` |
+| Group / Zone | Type | VLAN Tag | Subnet | Gateway IP (pfSense) | Node IP Allocation | Location / Description |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Attacker 1** | Loader + C2 | **10** | `185.10.20.0/24` | `185.10.20.1` | C2: `.100`, Loader: `.200` | จากรูป (วง 1) |
+| **Bot 1** | IoT Bot | **20** | `110.164.20.0/24` | `110.164.20.1` | `.11`, `.12` | จากรูป (วง 2) - ไทย |
+| **Bot 2** | IoT Bot | **21** | `125.20.30.0/24` | `125.20.30.1` | `.11`, `.12` | จากรูป (วง 3) - ไทย |
+| **Bot 3** | Bot | **30** | `66.249.64.0/24` | `66.249.64.1` | `.100` | Public IP - สหรัฐฯ |
+| **Bot 4** | Bot | **31** | `210.89.0.0/24` | `210.89.0.1` | `.100` | Public IP - เกาหลีใต้ |
+| **Bot 5** | Bot | **32** | `114.240.0.0/24` | `114.240.0.1` | `.100` | Public IP - จีน |
+| **Bot 6** | Bot | **33** | `95.24.0.0/24` | `95.24.0.1` | `.100` | Public IP - รัสเซีย |
+| **Bot 7** | Bot | **34** | `46.112.0.0/24` | `46.112.0.1` | `.100` | Public IP - เยอรมนี |
+| **Bot 8** | Bot | **35** | `177.0.0.0/24` | `177.0.0.1` | `.100` | Public IP - บราซิล |
+| **Bot 9** | Bot | **36** | `8.2.0.0/24` | `8.2.0.1` | `.100` | Public IP - อังกฤษ |
+| **Bot 10** | Bot | **37** | `1.0.1.0/24` | `1.0.1.1` | `.100` | Public IP - เอเชีย |
+| **Victim 1** | Target | **40** | `12.1.2.0/24` | `12.1.2.1` | `.100` | Public IP - สหรัฐอเมริกา (AT&T) |
+| **Victim 2** | Target | **41** | `202.97.0.0/24` | `202.97.0.1` | `.100` | Public IP - จีน (China Telecom) |
+| **Victim 3** | Target | **42** | `217.107.0.0/24` | `217.107.0.1` | `.100` | Public IP - รัสเซีย (Rostelecom) |
+| **Victim 4** | Target | **43** | `175.45.176.0/24` | `175.45.176.1` | `.100` | Public IP - เกาหลีเหนือ (Star JV) |
+| **Victim 5** | Target | **44** | `5.200.0.0/24` | `5.200.0.1` | `.100` | Public IP - อิหร่าน (TCI) |
 
 ---
 
 ## 🖥️ Node Resource Allocation (RAM, Storage, CPU)
 
-To avoid overloading the **ThinkCentre M710q (16GB RAM)**, we allocate resources carefully. Proxmox VE itself uses ~1.5 GB RAM.
+เพื่อความประหยัดทรัพยากรบนเครื่อง ThinkCentre M710q (16GB RAM) เราจะจัดสรรทรัพยากรดังนี้:
 
-| VM / LXC Name | ID | OS / Template | Resource Allocation (vCPU / RAM / Disk) | Core Software component |
+| VM / LXC Name | ID | OS / Template | Resource Allocation | Role / Software |
 | :--- | :--- | :--- | :--- | :--- |
-| **pfSense** | `100` | FreeBSD (ISO) | 1 Cores / **1 GB RAM** / 8 GB Disk | Virtual Router & Firewall rules |
-| **Attacker-C2** | `102` | Ubuntu 24.04 LXC | 1 Cores / **1.5 GB RAM** / 15 GB Disk | Mirai CNC (`mirai/cnc`), Database, Flask Web UI |
-| **Loader-Server** | `103` | Ubuntu 24.04 LXC | 1 Cores / **1 GB RAM** / 10 GB Disk | Mirai Loader Daemon (`loader`), HTTP File Server |
-| **Bot-TH1** | `201` | Alpine Linux LXC | 1 Core / **128 MB RAM** / 2 GB Disk | Infected Bot Daemon (`mirai/bot`) |
-| **Bot-TH2** | `202` | Alpine Linux LXC | 1 Core / **128 MB RAM** / 2 GB Disk | Infected Bot Daemon (`mirai/bot`) |
-| **Bot-US1** | `301` | Alpine Linux LXC | 1 Core / **128 MB RAM** / 2 GB Disk | Infected Bot Daemon (`mirai/bot`) |
-| **Target-SG** | `401` | Ubuntu 24.04 LXC | 1 Core / **1 GB RAM** / 8 GB Disk | Nginx Web Server (Victim host) |
-| **Target-KR** | `501` | Ubuntu 24.04 LXC | 1 Core / **1 GB RAM** / 8 GB Disk | Nginx Web Server (Victim host) |
-| **TOTALS** | — | — | **8 Cores / 6.0 GB RAM / 49 GB Disk** | *Safely fits inside 16GB RAM limit* |
+| **pfSense** | `100` | FreeBSD | 1 Core / 1 GB RAM / 8 GB Disk | Virtual Router & Gateway |
+| **Attacker-C2** | `102` | Ubuntu LXC | 1 Core / 1.5 GB RAM / 15 GB Disk | Mirai CNC (`mirai/cnc`) |
+| **Loader-Server** | `103` | Ubuntu LXC | 1 Core / 1 GB RAM / 10 GB Disk | Mirai Loader (`loader`) |
+| **Bot-1 (TH1)** | `201` | Alpine LXC | 1 Core / 128 MB RAM / 2 GB Disk | Infected IoT Bot |
+| **Bot-2 (TH2)** | `202` | Alpine LXC | 1 Core / 128 MB RAM / 2 GB Disk | Infected IoT Bot |
+| **Bot-3 (US)** | `301` | Alpine LXC | 1 Core / 128 MB RAM / 2 GB Disk | Infected Bot |
+| **Victim-1 (US)** | `401` | Ubuntu LXC | 1 Core / 1 GB RAM / 8 GB Disk | Target Web Server |
+| **Victim-2 (CN)** | `402` | Ubuntu LXC | 1 Core / 1 GB RAM / 8 GB Disk | Target Web Server |
 
 ---
 
 ## 🛠️ Step-by-Step Provisioning Guide
 
 ### Step 0: Create the Virtual Switch in Proxmox
-1. Log into your **Proxmox Web GUI**.
-2. Go to **[Your Node]** -> **System** -> **Network**.
-3. Click **Create** -> **Linux Bridge**.
+1. เข้าไปที่ **Proxmox Web GUI**
+2. เลือก node ของคุณ -> **System** -> **Network**
+3. คลิก **Create** -> **Linux Bridge**
    - **Name:** `vmbr1`
-   - **VLAN Aware:** Check this box `[X]` (Allows tagging `10`, `15`, `20`, `30`, `40`, `50`).
-4. Click **Apply Configuration**.
-
----
+   - **VLAN Aware:** Check `[X]`
+4. คลิก **Apply Configuration**
 
 ### Step 1: Install & Configure pfSense VM
-1. Click **Create VM**: ID `100`, Name: `pfSense-Router`. Assign 1 Core, 1024 MB RAM.
-2. Under **Network**:
-   - Device 1 (WAN): Bridge `vmbr0` (for setup and administration).
-   - Device 2 (LAN): Bridge `vmbr1` (VLAN Aware).
-3. In pfSense Console, set LAN to parent interface `vtnet1`.
-4. Inside pfSense Web Interface (**Interfaces -> Assignments -> VLANs**), add VLANs:
-   - **VLAN 10** (Attacker C2): IP `185.10.20.1/24`
-   - **VLAN 15** (Loader Server): IP `185.10.30.1/24`
-   - **VLAN 20** (Corp A): IP `110.164.20.1/24`
-   - **VLAN 30** (Corp B): IP `66.249.64.1/24`
-   - **VLAN 40** (Target SG): IP `203.0.113.1/24`
-   - **VLAN 50** (Target KR): IP `210.89.0.1/24`
-5. Go to **Interfaces -> Assignments**, enable all VLANs, and configure Static IPv4 addresses matching the list above.
-6. Disable the default rule blocking private/bogon networks under each interface configuration page.
+1. สร้าง pfSense VM (ID 100)
+2. เพิ่ม Network Interface:
+   - Interface 1: `vmbr0` (WAN)
+   - Interface 2: `vmbr1` (LAN - VLAN Aware)
+3. ใน pfSense Web GUI ให้เพิ่ม VLAN interfaces ตามตารางข้างบน (VLAN 10, 20, 21, 30-37, 40-44) พร้อมเปิดใช้ DHCP Server หรือตั้งเป็น Static IP ตามความต้องการ
 
----
+### Step 2: Configure the C2 & Loader Server (VLAN 10)
+1. **C2 Server (ID 102):**
+   - Bridge: `vmbr1`, VLAN Tag: `10`
+   - IPv4: `185.10.20.100/24`, Gateway: `185.10.20.1`
+2. **Loader Server (ID 103):**
+   - Bridge: `vmbr1`, VLAN Tag: `10`
+   - IPv4: `185.10.20.200/24`, Gateway: `185.10.20.1`
 
-### Step 2: Configure the C2 Server (VLAN 10)
-1. Create an Ubuntu 24.04 LXC, ID `102`, Name `Attacker-C2`.
-2. **Network settings:**
-   - Bridge: `vmbr1`
-   - VLAN Tag: `10`
-   - IPv4/CIDR: `185.10.20.100/24`
-   - Gateway: `185.10.20.1`
+### Step 3: Configure Bot Nodes
+1. **Bot-1 (ID 201):** Bridge: `vmbr1`, VLAN Tag: `20`, IPv4: `110.164.20.11/24`, Gateway: `110.164.20.1`
+2. **Bot-2 (ID 202):** Bridge: `vmbr1`, VLAN Tag: `21`, IPv4: `125.20.30.11/24`, Gateway: `125.20.30.1`
+3. **Bot-3 (ID 301):** Bridge: `vmbr1`, VLAN Tag: `30`, IPv4: `66.249.64.100/24`, Gateway: `66.249.64.1`
 
----
-
-### Step 3: Configure the Loader Server (VLAN 15)
-1. Create an Ubuntu 24.04 LXC, ID `103`, Name `Loader-Server`.
-2. **Network settings:**
-   - Bridge: `vmbr1`
-   - VLAN Tag: `15`
-   - IPv4/CIDR: `185.10.30.100/24`
-   - Gateway: `185.10.30.1`
-
----
-
-### Step 4: Configure the Bot Clusters (VLAN 20 & 30)
-We run Alpine Linux LXCs to keep memory usage minimal:
-1. **Bot-TH1 (LXC ID 201):**
-   - Bridge: `vmbr1`, VLAN Tag: `20`
-   - IPv4/CIDR: `110.164.20.11/24`, Gateway: `110.164.20.1`
-   - Setup vulnerable telnet daemon: `apk update && apk add busybox-extras && inetd`
-2. **Clone for Bot-TH2 (LXC ID 202):**
-   - IP: `110.164.20.12/24`
-3. **Clone for Bot-US1 (LXC ID 301):**
-   - VLAN Tag: `30`
-   - IPv4/CIDR: `66.249.64.11/24`, Gateway: `66.249.64.1`
-
----
-
-### Step 5: Configure Target Web Servers (VLAN 40 & 50)
-1. **Target-SG (LXC ID 401):**
-   - Bridge: `vmbr1`, VLAN Tag: `40`
-   - IPv4/CIDR: `203.0.113.100/24`, Gateway: `203.0.113.1`
-   - Install Web Server: `apt update && apt install nginx -y`
-2. **Target-KR (LXC ID 501):**
-   - Bridge: `vmbr1`, VLAN Tag: `50`
-   - IPv4/CIDR: `210.89.0.100/24`, Gateway: `210.89.0.1`
-   - Install Web Server: `apt update && apt install nginx -y`
+### Step 4: Configure Victim Targets
+1. **Victim-1 (ID 401):** Bridge: `vmbr1`, VLAN Tag: `40`, IPv4: `12.1.2.100/24`, Gateway: `12.1.2.1`
+2. **Victim-2 (ID 402):** Bridge: `vmbr1`, VLAN Tag: `41`, IPv4: `202.97.0.100/24`, Gateway: `202.97.0.1`

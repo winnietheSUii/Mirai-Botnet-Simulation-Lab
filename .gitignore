@@ -1,0 +1,61 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Go build artifacts
+mirai/cnc/cnc
+mirai/tools/enc
+mirai/tools/nogdb
+
+# C build artifacts (Mirai Bots)
+mirai/release/
+mirai/debug/
+
+# Loader build artifacts
+loader/bins/
+loader/loader
+
+# DLR (Dropper) build artifacts
+dlr/release/
+
+# Logs and Process ID files
+*.log
+*.pid
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary databases or dumps
+*.sql.gz
+*.db
