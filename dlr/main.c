@@ -36,7 +36,7 @@
 #define SCN(n) (n)
 #endif
 
-inline void run(void);
+void run(void);
 int sstrlen(char *);
 unsigned int utils_inet_addr(unsigned char, unsigned char, unsigned char, unsigned char);
 
@@ -83,7 +83,7 @@ void __start(void)
     run();
 }
 
-inline void run(void)
+void run(void)
 {
     char recvbuf[128];
     struct sockaddr_in addr;
