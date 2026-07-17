@@ -70,7 +70,7 @@ struct resolv_entries *resolv_lookup(char *domain)
     char query[2048], response[2048];
     struct dnshdr *dnsh = (struct dnshdr *)query;
     char *qname = (char *)(dnsh + 1);
-
+    util_zero(query, sizeof (query));
     resolv_domain_to_hostname(qname, domain);
 
     struct dns_question *dnst = (struct dns_question *)(qname + util_strlen(qname) + 1);
@@ -84,7 +84,7 @@ struct resolv_entries *resolv_lookup(char *domain)
     addr.sin_addr.s_addr = INET_ADDR(8,8,8,8);
     addr.sin_port = htons(53);
 
-    // Set up the dns query
+    // Set up the dns query 
     dnsh->id = dns_id;
     dnsh->opts = htons(1 << 8); // Recursion desired
     dnsh->qdcount = htons(1);
@@ -154,6 +154,15 @@ struct resolv_entries *resolv_lookup(char *domain)
             printf("[resolv] Got response from select\n");
 #endif
             int ret = recvfrom(fd, response, sizeof (response), MSG_NOSIGNAL, NULL, NULL);
+#ifdef DEBUG
+            if (ret >= sizeof (struct dnshdr)) {
+                struct dnshdr *tmp_dnsh = (struct dnshdr *)response;
+                printf("[resolv] recvfrom ret=%d, query_id=%04x, resp_id=%04x, ancount=%d, opts=%04x\n",
+                       ret, dns_id, tmp_dnsh->id, ntohs(tmp_dnsh->ancount), ntohs(tmp_dnsh->opts));
+            } else {
+                printf("[resolv] recvfrom ret=%d (too small)\n", ret);
+            }
+#endif
             char *name;
             struct dnsans *dnsa;
             uint16_t ancount;
