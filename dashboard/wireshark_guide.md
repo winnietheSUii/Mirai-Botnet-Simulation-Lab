@@ -151,3 +151,6 @@ The defender configures a firewall rule on pfSense to drop traffic from the C2 s
   ip.src == 185.10.20.0/24
   ```
 * **What it shows:** After the drop rule is applied, traffic from the C2 server completely stops. The bots stop receiving new attack instructions, and target flood packets instantly drop to zero.
+
+* <img width="1168" height="784" alt="image" src="https://github.com/user-attachments/assets/a61de5c1-e1fb-454f-b0c1-afed8da25e81" />
+
