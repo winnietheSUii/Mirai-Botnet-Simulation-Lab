@@ -3,10 +3,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/backend"
 
-if [[ ! -d .venv ]]; then
+# Recreate venv if missing or broken (dir exists but activate script missing)
+if [[ ! -f .venv/bin/activate ]]; then
+  rm -rf .venv
   python3 -m venv .venv
   # shellcheck disable=SC1091
   source .venv/bin/activate
+  pip install -U pip
   pip install -r requirements.txt
 else
   # shellcheck disable=SC1091

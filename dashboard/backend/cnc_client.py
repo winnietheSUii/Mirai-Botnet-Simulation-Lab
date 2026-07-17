@@ -127,15 +127,43 @@ class CncClient:
         return len(peers)
 
     def _login(self, sock: socket.socket) -> str:
-        # Consume banner / username prompt
-        self._recv_until(sock, ("username", "user", "login", "пользователь", ":"), max_wait=5.0)
+        # Mirai CNC initialHandler() BLOCKS on the first Read before choosing
+        # bot vs admin. Real `telnet` clients send IAC negotiation first, so
+        # they get Admin.Handle() prompts. A silent client deadlocks:
+        #   CNC waits for bytes, we wait for "username" prompt.
+        # Send a non-bot prologue (must NOT be 00 00 00 xx) to enter admin UI.
+        try:
+            sock.sendall(b"\xff\xfb\x01\xff\xfb\x03\r\n")
+        except OSError as e:
+            raise RuntimeError(f"CNC wake/send failed: {e}") from e
+
+        # Consume banner / username prompt (RU "пользователь" or plain)
+        pre = self._recv_until(
+            sock,
+            ("username", "user", "login", "пользователь", "password", "пароль", ":"),
+            max_wait=8.0,
+        )
+        if not strip_ansi(pre).strip():
+            raise RuntimeError(
+                "CNC opened :23 but sent no admin prompt "
+                "(need prompt.txt next to ./cnc, and non-bot first packet)"
+            )
+
         self._send_line(sock, self.username)
-        self._recv_until(sock, ("password", "pass", "пароль", ":"), max_wait=4.0)
+        self._recv_until(sock, ("password", "pass", "пароль", ":"), max_wait=5.0)
         self._send_line(sock, self.password)
-        raw = self._recv_until(sock, ("Ready", "botnet#", "error", "unknown"), max_wait=12.0)
+        raw = self._recv_until(sock, ("Ready", "botnet#", "error", "unknown", "ошибка"), max_wait=15.0)
         plain = strip_ansi(raw)
         if "Ready" not in plain and "botnet#" not in plain:
-            raise RuntimeError("CNC login failed (check admin/admin and prompt.txt next to cnc)")
+            # Common: wrong password → Russian error text
+            if "unknown" in plain.lower() or "ошибка" in plain:
+                raise RuntimeError(
+                    f"CNC login rejected for user={self.username!r} "
+                    "(default lab is admin/admin — check MySQL users table)"
+                )
+            raise RuntimeError(
+                "CNC login failed (check admin/admin, MySQL, and prompt.txt next to cnc)"
+            )
         # Drain title / spinner leftovers
         time.sleep(0.35)
         try:
