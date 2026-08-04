@@ -58,15 +58,31 @@ dashboard/
 
 ---
 
+## Lab Control (CNC + Loader from the web UI)
+
+See **[LAB_CONTROL.md](./LAB_CONTROL.md)** for the full flow.
+
+Short version:
+
+| Host | Start |
+|------|--------|
+| Loader `185.10.20.200` | `cd loader/lab_agent && ./start.sh` (port **9090**) |
+| C2 `185.10.20.100` | `cd dashboard && ./start.sh` (port **8080**) |
+
+Then open `http://185.10.20.100:8080` → **LabCtl.exe**: Start CNC, Start HTTP bins, Run `loader.dbg` with IP/user/pass.
+
+---
+
 ## Run on C2 (`185.10.20.100`)
 
-### 1) CNC must already be running
+### 1) CNC (optional if using Lab Control “Start CNC”)
 
 ```bash
 cd ~/Mirai-Botnet-Simulation-Lab/mirai/release
 ss -lntp | grep :23
 # if empty:
 nohup ./cnc > cnc.log 2>&1 &
+# or click Start CNC in the dashboard Lab Control panel
 ```
 
 ### 2) Install & start dashboard
@@ -75,6 +91,8 @@ Quick path:
 
 ```bash
 cd ~/Mirai-Botnet-Simulation-Lab/dashboard
+export LOADER_AGENT_URL=http://185.10.20.200:9090
+export LAB_TOKEN=lab-only
 ./start.sh
 ```
 

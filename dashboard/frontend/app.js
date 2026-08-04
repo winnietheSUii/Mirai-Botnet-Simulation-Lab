@@ -417,6 +417,163 @@ function tickClock() {
   });
 }
 
+/* --- Lab Control (C2 CNC + Loader agent) --- */
+
+let loaderPollTimer = null;
+
+function setLabLed(id, on) {
+  setLed($(id), on ? "ok" : "down");
+}
+
+function renderLoaderJob(loader) {
+  const pre = $("#lab-loader-log");
+  if (!pre || !loader) return;
+
+  const lines = [];
+  lines.push(`running: ${Boolean(loader.running)}`);
+  if (loader.target) lines.push(`target: ${loader.target}`);
+  if (loader.exit_code !== null && loader.exit_code !== undefined) {
+    lines.push(`exit_code: ${loader.exit_code}`);
+  }
+  if (loader.ok_line) lines.push(`ok: ${loader.ok_line}`);
+  if (loader.error) lines.push(`error: ${loader.error}`);
+  if (loader.log_tail) {
+    lines.push("---");
+    lines.push(loader.log_tail);
+  }
+  pre.textContent = lines.join("\n");
+
+  if (loader.running) {
+    setNodeState("node-loader", "online");
+  }
+}
+
+function applyLabOverview(data) {
+  if (!data) return;
+
+  const cncUp = Boolean(data.cnc?.listening_23);
+  setLabLed("#lab-cnc-led", cncUp);
+  setText($("#lab-cnc-text"), cncUp ? "up" : "down");
+
+  const agentOk = Boolean(data.loader_agent?.ok);
+  setLabLed("#lab-agent-led", agentOk);
+  setText($("#lab-agent-text"), agentOk ? "up" : "down");
+
+  const httpUp = Boolean(data.loader?.http?.running || data.loader?.http?.port_listen);
+  setLabLed("#lab-http-led", httpUp);
+  setText($("#lab-http-text"), httpUp ? "up" : "down");
+
+  setNodeState("node-c2", cncUp ? "online" : "offline");
+  setNodeState("node-loader", agentOk ? "online" : "waiting");
+
+  if (data.loader?.loader) renderLoaderJob(data.loader.loader);
+  if (data.loader_ip) setText($("#ip-loader"), data.loader_ip);
+  if (data.c2_ip) setText($("#ip-c2"), data.c2_ip);
+}
+
+async function refreshLabOverview({ toast = false } = {}) {
+  try {
+    const data = await api("/api/lab/overview");
+    applyLabOverview(data);
+    if (!data.loader_agent?.ok && data.loader_agent?.error) {
+      pushConsole(`[LAB] agent: ${data.loader_agent.error}`, "err");
+    }
+    if (toast) showToast("Lab status", "C2 + Loader overview refreshed");
+    return data;
+  } catch (error) {
+    setLabLed("#lab-agent-led", false);
+    setText($("#lab-agent-text"), "error");
+    if (toast) showToast("Lab status failed", error.message, "bad");
+    return null;
+  }
+}
+
+async function labPost(path, body, button, okTitle) {
+  await withBusy(button, async () => {
+    pushConsole(`[LAB] POST ${path}`, "cmd");
+    const data = await api(path, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : "{}",
+    });
+    if (data.ok) {
+      showToast(okTitle || "OK", data.message || path);
+      pushConsole(`[LAB][OK] ${data.message || path}`, "ok");
+      if (data.ok_line) pushConsole(data.ok_line, "ok");
+    } else {
+      const msg = data.error || data.message || "failed";
+      showToast("Lab action failed", msg, "bad");
+      pushConsole(`[LAB][ERR] ${msg}`, "err");
+      if (data.hint) pushConsole(`[LAB] ${data.hint}`, "sys");
+    }
+    await refreshLabOverview();
+    await refreshStatus();
+  });
+}
+
+async function pollLoaderLogWhileRunning() {
+  if (loaderPollTimer) return;
+  loaderPollTimer = setInterval(async () => {
+    try {
+      const data = await api("/api/lab/loader/log");
+      const job = data.loader || data;
+      if (job && (job.log_tail !== undefined || job.running !== undefined)) {
+        renderLoaderJob(job);
+      }
+      if (job && job.running === false) {
+        clearInterval(loaderPollTimer);
+        loaderPollTimer = null;
+        if (job.ok_line) {
+          showToast("Loader finished", job.ok_line);
+          pushConsole(`[LAB] ${job.ok_line}`, "ok");
+        } else if (job.error) {
+          showToast("Loader finished", job.error, "bad");
+        } else {
+          showToast("Loader finished", `exit ${job.exit_code}`, job.exit_code === 0 ? "good" : "warn");
+        }
+        await refreshLabOverview();
+        await refreshStatus();
+      }
+    } catch {
+      /* ignore transient */
+    }
+  }, 1500);
+}
+
+async function runLoaderFromForm(event) {
+  event.preventDefault();
+  const ip = $("#loader-ip")?.value?.trim();
+  const port = Number($("#loader-port")?.value || 23);
+  const user = $("#loader-user")?.value?.trim();
+  const pass = $("#loader-pass")?.value ?? "";
+  const button = $("#btn-loader-run");
+
+  if (!ip || !user) {
+    showToast("Missing fields", "IP and username required", "warn");
+    return;
+  }
+
+  await withBusy(button, async () => {
+    pushConsole(`[LAB] loader ${ip}:${port} ${user}:***`, "cmd");
+    const data = await api("/api/lab/loader/run", {
+      method: "POST",
+      body: JSON.stringify({ ip, port, user, pass }),
+    });
+
+    if (data.ok) {
+      showToast("Loader started", data.target || ip);
+      pushConsole(`[LAB][OK] loader started ${data.target || ip}`, "ok");
+      $("#lab-loader-log").textContent = "[lab] running… wait for OK| (do not spam)\n";
+      pollLoaderLogWhileRunning();
+    } else {
+      const msg = data.error || "loader start failed";
+      showToast("Loader failed", msg, "bad");
+      pushConsole(`[LAB][ERR] ${msg}`, "err");
+      if (data.hint) pushConsole(`[LAB] ${data.hint}`, "sys");
+    }
+    await refreshLabOverview();
+  });
+}
+
 function focusWindow(id) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -475,6 +632,23 @@ function bind() {
   $$("[data-focus-window]").forEach((button) => {
     button.addEventListener("click", () => focusWindow(button.getAttribute("data-focus-window")));
   });
+
+  $("#btn-lab-refresh")?.addEventListener("click", (event) => {
+    withBusy(event.currentTarget, () => refreshLabOverview({ toast: true }));
+  });
+  $("#btn-cnc-start")?.addEventListener("click", (event) => {
+    labPost("/api/lab/cnc/start", {}, event.currentTarget, "CNC start");
+  });
+  $("#btn-cnc-stop")?.addEventListener("click", (event) => {
+    labPost("/api/lab/cnc/stop", {}, event.currentTarget, "CNC stop");
+  });
+  $("#btn-http-start")?.addEventListener("click", (event) => {
+    labPost("/api/lab/http/start", {}, event.currentTarget, "HTTP start");
+  });
+  $("#btn-http-stop")?.addEventListener("click", (event) => {
+    labPost("/api/lab/http/stop", {}, event.currentTarget, "HTTP stop");
+  });
+  $("#lab-loader-form")?.addEventListener("submit", runLoaderFromForm);
 }
 
 bind();
@@ -482,3 +656,5 @@ tickClock();
 setInterval(tickClock, 1000);
 refreshStatus();
 setInterval(refreshStatus, 4000);
+refreshLabOverview();
+setInterval(refreshLabOverview, 8000);

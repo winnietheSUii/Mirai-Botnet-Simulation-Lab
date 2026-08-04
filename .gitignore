@@ -40,6 +40,7 @@ mirai/debug/
 # Loader build artifacts
 loader/bins/
 loader/loader
+loader/loader.dbg
 
 # DLR (Dropper) build artifacts
 dlr/release/
@@ -55,7 +56,37 @@ dlr/release/
 *.swo
 *~
 .DS_Store
+.impeccable/
 
 # Temporary databases or dumps
 *.sql.gz
 *.db
+
+# --- Node (local docx tooling, etc.) ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+package-lock.json
+package.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+dashboard/backend/.venv/
+loader/lab_agent/.venv/
+
+# --- Local lab / session junk ---
+docs/
+*.docx
+*.pdf
+.sessions/
+tmp/
+temp/

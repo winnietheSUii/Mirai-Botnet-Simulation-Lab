@@ -286,6 +286,7 @@ pre {
   grid-template-areas:
     "monitor console"
     "command console"
+    "labctl console"
     "topology cheatsheet";
   gap: 8px;
   align-items: stretch;
@@ -297,6 +298,10 @@ pre {
 
 .command-window {
   grid-area: command;
+}
+
+.labctl-window {
+  grid-area: labctl;
 }
 
 .console-window {
@@ -312,6 +317,61 @@ pre {
 
 .cheatsheet-window {
   grid-area: cheatsheet;
+}
+
+.labctl-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.labctl-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.labctl-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #333;
+  line-height: 1.35;
+}
+
+.labctl-hint code {
+  font-family: "Lucida Console", "Courier New", monospace;
+  font-size: 10px;
+}
+
+.lab-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  gap: 6px 8px;
+  margin-bottom: 8px;
+}
+
+.lab-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.lab-loader-log {
+  margin: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 6px 8px;
+  background: #000;
+  color: #0f0;
+  font-family: "Lucida Console", "Courier New", monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
 }
 
 .window-panel {
@@ -1140,6 +1200,7 @@ pre {
     grid-template-areas:
       "monitor"
       "command"
+      "labctl"
       "console"
       "topology"
       "cheatsheet";

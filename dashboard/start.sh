@@ -21,6 +21,12 @@ export CNC_PORT="${CNC_PORT:-23}"
 export CNC_USER="${CNC_USER:-admin}"
 export CNC_PASS="${CNC_PASS:-admin}"
 export DASH_PORT="${DASH_PORT:-8080}"
+export LAB_TOKEN="${LAB_TOKEN:-lab-only}"
+export LOADER_AGENT_URL="${LOADER_AGENT_URL:-http://185.10.20.200:9090}"
+export LAB_C2_IP="${LAB_C2_IP:-185.10.20.100}"
+export LAB_LOADER_IP="${LAB_LOADER_IP:-185.10.20.200}"
+# Optional: export CNC_BIN=/path/to/cnc
 
 echo "[dashboard] CNC ${CNC_HOST}:${CNC_PORT}  UI :${DASH_PORT}"
+echo "[dashboard] Loader agent ${LOADER_AGENT_URL}"
 exec python3 app.py
