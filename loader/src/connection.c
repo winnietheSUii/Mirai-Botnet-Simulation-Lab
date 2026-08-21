@@ -435,6 +435,8 @@ int connection_consume_copy_op(struct connection *conn)
 
 int connection_consume_arch(struct connection *conn)
 {
+    int offset;
+
     if (!conn->info.has_arch)
     {
         struct elf_hdr *ehdr;
@@ -487,20 +489,21 @@ int connection_consume_arch(struct connection *conn)
         {
             conn->info.arch[0] = 0;
             connection_close(conn);
+            return 0;
         }
     }
-    else
-    {
-        int offset;
 
-        if ((offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE))) != -1)
-            return offset;
-        if (conn->rdbuf_pos > 7168)
-        {
-            // Hack drain buffer
-            memmove(conn->rdbuf, conn->rdbuf + 6144, conn->rdbuf_pos - 6144);
-            conn->rdbuf_pos -= 6144;
-        }
+    /*
+     * A 32-byte ELF dump arrives in the same packet as TOKEN_RESPONSE.
+     * Advance in this call; do not wait for another recv that never comes.
+     */
+    if ((offset = util_memsearch(conn->rdbuf, conn->rdbuf_pos, TOKEN_RESPONSE, strlen(TOKEN_RESPONSE))) != -1)
+        return offset;
+    if (conn->rdbuf_pos > 7168)
+    {
+        // Hack drain buffer
+        memmove(conn->rdbuf, conn->rdbuf + 6144, conn->rdbuf_pos - 6144);
+        conn->rdbuf_pos -= 6144;
     }
 
     return 0;

