@@ -1,4 +1,4 @@
-﻿"""
+"""
 CNC control helper for the lab dashboard.
 Talks to Mirai CNC admin port (default 23) over TCP â€” same path as telnet.
 """
@@ -116,13 +116,17 @@ class CncClient:
             if len(parts) < 4:
                 continue
             local, peer = parts[2], parts[3]
-            # peer like 110.164.20.14:45678
+            # peer like 110.164.20.14:45678 or ::ffff:110.164.20.14:45678
             host = peer.rsplit(":", 1)[0].strip("[]")
-            if host in ("127.0.0.1", "::1", "*"):
+            host = host.replace("::ffff:", "")
+            
+            # We allow 127.0.0.1 now because some bots might be forwarded or local in lab.
+            # We skip "::1" or "*".
+            if host in ("::1", "*"):
                 continue
-            if host.startswith("185.10.20.") and ":23" in local:
-                # still count remote bots
-                pass
+            
+            # Optionally filter out dashboard's own outgoing connection if needed,
+            # but since we want to see local bots, we keep it.
             peers.add(host)
         return list(peers)
 
