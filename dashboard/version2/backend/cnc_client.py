@@ -367,7 +367,7 @@ class CncClient:
 
 def default_client() -> CncClient:
     return CncClient(
-        host=os.environ.get("CNC_HOST", "127.0.0.1"),
+        host=os.environ.get("CNC_HOST", os.environ.get("LAB_C2_IP", "185.10.20.100")),
         port=int(os.environ.get("CNC_PORT", "23")),
         username=os.environ.get("CNC_USER", "admin"),
         password=os.environ.get("CNC_PASS", "admin"),

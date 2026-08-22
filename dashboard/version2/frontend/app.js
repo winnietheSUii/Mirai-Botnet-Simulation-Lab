@@ -464,7 +464,11 @@ function applyStatus(data){
       for(let k=0; k<ip.length; k++) hash = Math.imul(31, hash) + ip.charCodeAt(k) | 0;
       const seed = Math.abs(hash);
       
-      const firstOctet = parseInt(ip.split('.')[0] || "10");
+      
+      // Clean IPv4-mapped IPv6 addresses (e.g. ::ffff:110.164.20.213 -> 110.164.20.213)
+      let cleanIp = ip.replace(/^::ffff:/, '');
+      const firstOctet = parseInt(cleanIp.split('.')[0] || "10");
+
       let r = REGIONS[seed % REGIONS.length];
       
       if (firstOctet === 110 || firstOctet === 125) { r = {lat:[10,20], lon:[90,110], c:"Thailand"}; }
@@ -484,7 +488,7 @@ function applyStatus(data){
         id: "bot_peer_" + i,
         type: "bot",
         label: "BOT-" + (i+1),
-        ip: ip,
+        ip: cleanIp,
         lat: r.lat[0] + rand1 * (r.lat[1] - r.lat[0]),
         lon: r.lon[0] + rand2 * (r.lon[1] - r.lon[0]),
         country: r.c
