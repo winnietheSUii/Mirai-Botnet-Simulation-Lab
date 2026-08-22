@@ -17,23 +17,10 @@ const LOG_POLL_MS = 3000;
    Each bot appears as a small dot at its actual subnet position.
    Add more bots here or feed dynamically from /api/geo.
    ----------------------------------------------------------- */
-const LAB_NODES = [
+const STATIC_NODES = [
   // Attackers (C2 + Loader)
   { id:"c2",    type:"attacker", label:"C2/CNC",      ip:"185.10.20.100",  lat:48.80, lon:2.35,   country:"Lab C2" },
   { id:"ldr",   type:"attacker", label:"LOADER",      ip:"185.10.20.200",  lat:48.85, lon:2.50,   country:"Lab Loader" },
-
-  // Infected Bots (add more as you infect more targets)
-  { id:"bot1",  type:"bot", label:"BOT-1",  ip:"110.164.20.11",  lat:13.75, lon:100.52, country:"Thailand" },
-  { id:"bot2",  type:"bot", label:"BOT-2",  ip:"125.20.30.11",   lat:14.00, lon:100.80, country:"Thailand" },
-  { id:"bot3",  type:"bot", label:"BOT-3",  ip:"66.249.64.100",  lat:37.77, lon:-122.4, country:"USA" },
-  { id:"bot4",  type:"bot", label:"BOT-4",  ip:"210.89.0.100",   lat:37.57, lon:126.97, country:"South Korea" },
-  { id:"bot5",  type:"bot", label:"BOT-5",  ip:"114.240.0.100",  lat:39.93, lon:116.38, country:"China" },
-  { id:"bot6",  type:"bot", label:"BOT-6",  ip:"95.24.0.100",    lat:55.75, lon:37.62,  country:"Russia" },
-  { id:"bot7",  type:"bot", label:"BOT-7",  ip:"46.112.0.100",   lat:52.52, lon:13.40,  country:"Germany" },
-  { id:"bot8",  type:"bot", label:"BOT-8",  ip:"177.0.0.100",    lat:-23.55,lon:-46.63, country:"Brazil" },
-  { id:"bot9",  type:"bot", label:"BOT-9",  ip:"8.2.0.100",      lat:51.51, lon:-0.12,  country:"United Kingdom" },
-  { id:"bot10", type:"bot", label:"BOT-10", ip:"1.0.1.100",      lat:35.68, lon:139.69, country:"Japan" },
-
   // Victims / Targets
   { id:"v_us",  type:"victim", label:"TARGET:USA",    ip:"12.1.2.100",     lat:40.71, lon:-74.01, country:"USA (AT&T)",       victimKey:"us" },
   { id:"v_cn",  type:"victim", label:"TARGET:CN",     ip:"202.97.0.100",   lat:31.23, lon:121.47, country:"China (CT)",       victimKey:"cn" },
@@ -43,7 +30,32 @@ const LAB_NODES = [
 ];
 
 const VICTIM_MAP = {};
-LAB_NODES.filter(n => n.type === "victim").forEach(v => { VICTIM_MAP[v.victimKey] = v; });
+STATIC_NODES.filter(n => n.type === "victim").forEach(v => { VICTIM_MAP[v.victimKey] = v; });
+
+const ALL_BOTS = [];
+const REGIONS = [
+  { lat:[30,48], lon:[-120,-70], c:"USA" },
+  { lat:[40,60], lon:[10,40], c:"Europe" },
+  { lat:[20,40], lon:[100,120], c:"Asia" },
+  { lat:[-30,-10], lon:[-60,-40], c:"South America" },
+  { lat:[10,20], lon:[90,110], c:"SE Asia" }
+];
+for(let i=1; i<=2000; i++){
+  const r = REGIONS[i % REGIONS.length];
+  const s = Math.sin(i) * 10000;
+  const rand1 = s - Math.floor(s);
+  const s2 = Math.cos(i) * 10000;
+  const rand2 = s2 - Math.floor(s2);
+  ALL_BOTS.push({
+    id:"bot"+i, type:"bot", label:"BOT-"+i,
+    ip: "10." + Math.floor(rand1*255) + "." + Math.floor(rand2*255) + "." + (i%255),
+    lat: r.lat[0] + rand1*(r.lat[1]-r.lat[0]),
+    lon: r.lon[0] + rand2*(r.lon[1]-r.lon[0]),
+    country: r.c
+  });
+}
+
+let LAB_NODES = [...STATIC_NODES];
 
 /* ---- WORLD MAP POLYGONS [lat, lon] ----------------------- */
 const WORLD_POLYS = [
@@ -442,16 +454,15 @@ function applyStatus(data){
   const bots  = data.bot_total ?? 0;
   const peers = data.tcp_peers ?? "--";
 
-  if (bots > _lastBotTotal) {
-    // Bot count went up — log it (no random dots)
-    termLog("[BOT] +"+(bots-_lastBotTotal)+" new bots. total="+bots,"ok");
+  if (bots !== _lastBotTotal) {
+    LAB_NODES = [...STATIC_NODES, ...ALL_BOTS.slice(0, bots)];
+    buildNodeList(); // update sidebar
+    if(bots > _lastBotTotal) termLog("[BOT] +"+(bots-_lastBotTotal)+" new bots. total="+bots,"ok");
   }
   _lastBotTotal = bots;
 
   const elCount=document.getElementById("hdr-bot-count");
   if(elCount) elCount.textContent=String(bots).padStart(3,"0");
-  const elPeers=document.getElementById("hdr-peers");
-  if(elPeers) elPeers.textContent=peers;
 
   const chip=document.getElementById("hdr-cnc-status");
   if(chip){ chip.textContent=cncUp?"[CNC:UP]":"[CNC:DOWN]"; chip.className="hdr-chip "+(cncUp?"chip-up":"chip-down"); }
