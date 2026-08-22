@@ -56,6 +56,7 @@ class CncClient:
         password: str = "admin",
         timeout: float = 8.0,
         api_port: int = 9090,
+        bot_grace_sec: int = 60,
     ) -> None:
         self.host = host
         self.port = port
@@ -63,6 +64,10 @@ class CncClient:
         self.password = password
         self.timeout = timeout
         self.api_port = api_port
+        # Grace period: keep a bot in the list for this many seconds after it
+        # last appeared — absorbs Mirai's rapid disconnect/reconnect cycles.
+        self.bot_grace_sec = bot_grace_sec
+        self._bot_seen_cache: Dict[str, float] = {}  # ip -> last_seen timestamp
         self.log = LabLog()
         self._lock = threading.Lock()
         self._last_bot_total = 0
@@ -103,22 +108,32 @@ class CncClient:
             return False
 
     def get_bot_ips(self) -> List[str]:
-        """Fetch the live list of bot IPs from the CNC's built-in HTTP API.
+        """Fetch live bot IPs from the Go CNC HTTP API, with grace-period caching.
 
-        The Go CNC exposes GET http://<host>:<api_port>/bots which returns a
-        JSON array of IPv4 strings, e.g. ["110.164.20.213", "66.249.64.13"].
-        These IPs come directly from conn.RemoteAddr() inside the Go process,
-        so they are 100% bot-only (admins excluded) and free from `ss` noise.
+        Mirai bots naturally disconnect and reconnect frequently (reconnect loop
+        in the bot binary). Without a grace period, the map flickers every time
+        a bot briefly drops. This method keeps a bot in the list for
+        `bot_grace_sec` seconds after it was last seen, smoothing out noise
+        while still eventually removing truly dead bots.
         """
         url = f"http://{self.host}:{self.api_port}/bots"
+        now = time.time()
         try:
             with urllib.request.urlopen(url, timeout=3) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 if isinstance(data, list):
-                    return [ip for ip in data if isinstance(ip, str) and ip]
+                    for ip in data:
+                        if isinstance(ip, str) and ip:
+                            self._bot_seen_cache[ip] = now
         except Exception as e:
             self.log.add("WARN", f"HTTP bot API unavailable ({url}): {e}")
-        return []
+
+        # Evict IPs that have been gone longer than the grace period
+        cutoff = now - self.bot_grace_sec
+        self._bot_seen_cache = {
+            ip: ts for ip, ts in self._bot_seen_cache.items() if ts >= cutoff
+        }
+        return list(self._bot_seen_cache.keys())
 
     def _login(self, sock: socket.socket) -> str:
         # Mirai CNC initialHandler() BLOCKS on the first Read before choosing
