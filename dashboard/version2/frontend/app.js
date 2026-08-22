@@ -448,6 +448,7 @@ if(clrBtn) clrBtn.addEventListener("click",()=>{ document.getElementById("termin
 
 /* ---- APPLY STATUS ---------------------------------------- */
 let _lastBotTotal=0;
+let _knownBotIps=new Set(); // track per-IP join/leave events
 
 function applyStatus(data){
   const cncUp = !!data.cnc_up;
@@ -455,8 +456,24 @@ function applyStatus(data){
   const peers = data.tcp_peers ?? "--";
 
   const peerIps = data.peer_ips || [];
+  const peerSet = new Set(peerIps.map(ip=>ip.replace(/^::ffff:/,'')));
 
-  if (bots !== _lastBotTotal || peerIps.length > 0) {
+  // Log per-IP JOIN events (new IPs not seen before)
+  peerSet.forEach(ip=>{
+    if(!_knownBotIps.has(ip)){
+      termLog("[BOT] JOIN  "+ip+" (total: "+peerSet.size+")","ok");
+      _knownBotIps.add(ip);
+    }
+  });
+  // Log per-IP LEAVE events (IPs that disappeared)
+  _knownBotIps.forEach(ip=>{
+    if(!peerSet.has(ip)){
+      termLog("[BOT] LEAVE "+ip+" (total: "+peerSet.size+")","err");
+      _knownBotIps.delete(ip);
+    }
+  });
+
+  if (peerIps.length > 0 || bots !== _lastBotTotal) {
     LAB_NODES = [...STATIC_NODES];
     
     peerIps.forEach((ip, i) => {
@@ -500,16 +517,15 @@ function applyStatus(data){
       LAB_NODES.push(...ALL_BOTS.slice(0, remaining));
     }
     
-    if (bots !== _lastBotTotal) {
-      if(bots > _lastBotTotal) termLog("[BOT] +"+(bots-_lastBotTotal)+" new bots. total="+bots,"ok");
-      _lastBotTotal = bots;
-    }
+    _lastBotTotal = bots;
     buildNodeList(); // update sidebar
   }
   _lastBotTotal = bots;
 
+  // Override display with real peer count
+  const displayBots = peerIps.length || bots;
   const elCount=document.getElementById("hdr-bot-count");
-  if(elCount) elCount.textContent=String(bots).padStart(3,"0");
+  if(elCount) elCount.textContent=String(displayBots).padStart(3,"0");
 
   const chip=document.getElementById("hdr-cnc-status");
   if(chip){ chip.textContent=cncUp?"[CNC:UP]":"[CNC:DOWN]"; chip.className="hdr-chip "+(cncUp?"chip-up":"chip-down"); }
@@ -536,15 +552,24 @@ async function pollStatus(){
     applyStatus(await r.json());
   }catch{}
 }
+let _lastLogLine=""; // dedup: track last line printed from /api/logs
 async function pollLogs(){
   try{
     const r=await fetch(API_BASE+"/api/logs");
     if(!r.ok) return;
     const d=await r.json();
-    (d.logs||[]).slice(-8).forEach(l=>{
-      const cls=l.includes("[ERR]")?"err":l.includes("[CMD]")?"cmd":l.includes("[OK]")?"ok":"sys";
+    const lines=(d.logs||[]);
+    // Only print lines we haven't shown yet (find the new tail since last poll)
+    const lastIdx=lines.lastIndexOf(_lastLogLine);
+    const newLines=lastIdx===-1 ? lines.slice(-5) : lines.slice(lastIdx+1);
+    newLines.forEach(l=>{
+      if(!l) return;
+      // Skip repetitive "CNC session ok" noise — only log if bots count changed
+      if(l.includes("CNC session ok")) return;
+      const cls=l.includes("[ERR]")?"err":l.includes("[CMD]")?"cmd":l.includes("[OK]")?"ok":l.includes("[WARN]")?"err":"sys";
       termLog(l,cls);
     });
+    if(lines.length>0) _lastLogLine=lines[lines.length-1];
   }catch{}
 }
 async function pollOverview(){
