@@ -1,4 +1,4 @@
-﻿/* =============================================================
+/* =============================================================
    MIRAI BOT TRACKER v2.0 // app.js  (clean edition)
    - No matrix rain
    - No random infection dots
@@ -444,7 +444,7 @@ function applyStatus(data){
 
   if (bots > _lastBotTotal) {
     // Bot count went up — log it (no random dots)
-    termLog("[BOT] +"+（bots-_lastBotTotal)+" new bots. total="+bots,"ok");
+    termLog("[BOT] +"+(bots-_lastBotTotal)+" new bots. total="+bots,"ok");
   }
   _lastBotTotal = bots;
 
@@ -565,7 +565,7 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
       const ok=d.ok!==false;
       toast(ok?"ATK: "+method.toUpperCase()+" >> "+vnode.label:"ERR: "+d.error,!ok);
       termLog("[ATK] "+method+" "+vnode.ip+" "+dur+"s >> "+(ok?"OK":"ERR: "+d.error),ok?"cmd":"err");
-    }catch(){ toast("FETCH ERR",true); }
+    }catch(e){ toast("FETCH ERR",true); }
 
     setTimeout(()=>{
       if(row) row.classList.remove("firing");
