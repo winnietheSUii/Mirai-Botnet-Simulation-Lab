@@ -1,8 +1,10 @@
 package main
 
 import (
+    "encoding/json"
     "fmt"
     "net"
+    "net/http"
     "errors"
     "time"
 )
@@ -27,6 +29,26 @@ func main() {
         fmt.Println(err)
         return
     }
+
+    // HTTP API server — exposes /bots as JSON for the dashboard
+    go func() {
+        mux := http.NewServeMux()
+        mux.HandleFunc("/bots", func(w http.ResponseWriter, r *http.Request) {
+            ips := clientList.GetIPs()
+            w.Header().Set("Content-Type", "application/json")
+            if err := json.NewEncoder(w).Encode(ips); err != nil {
+                http.Error(w, "encode error", http.StatusInternalServerError)
+            }
+        })
+        mux.HandleFunc("/count", func(w http.ResponseWriter, r *http.Request) {
+            w.Header().Set("Content-Type", "application/json")
+            fmt.Fprintf(w, `{"count":%d}`, clientList.Count())
+        })
+        fmt.Println("[HTTP] Bot API listening on :9090")
+        if err := http.ListenAndServe(":9090", mux); err != nil {
+            fmt.Println("[HTTP] Error:", err)
+        }
+    }()
 
     go func() {
         for {

