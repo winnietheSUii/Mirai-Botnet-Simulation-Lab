@@ -1,0 +1,197 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BOTNET.EXE // MIRAI LAB SIMULATION</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- HEADER / TITLEBAR -->
+  <header class="hdr">
+    <div class="hdr-left">
+      <span class="hdr-logo blink-slow">&#9608;</span>
+      <span class="hdr-logo"> MIRAI v2.0 // BOT-TRACKER</span>
+      <span class="hdr-sep">&#9474;</span>
+      <span class="hdr-badge">!! LAB SIMULATION !!</span>
+      <span class="hdr-sep">&#9474;</span>
+      <span id="hdr-cnc-status" class="hdr-chip chip-down">[CNC:DOWN]</span>
+    </div>
+    <div class="hdr-center">
+      <span class="hdr-label">BOTS//</span>
+      <span class="hdr-botcount" id="hdr-bot-count">000</span>
+      <span class="hdr-label"> PEERS//</span>
+      <span class="hdr-botcount" id="hdr-peers">--</span>
+    </div>
+    <div class="hdr-right">
+      <span class="hdr-label">SYS:</span><span id="hdr-clock" class="hdr-clock">00:00:00</span>
+      <span class="hdr-sep">&#9474;</span>
+      <button id="btn-refresh" class="btn-small">[SYNC]</button>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT -->
+  <div class="layout">
+
+    <!-- MAP -->
+    <div class="map-area" id="map-area">
+      <canvas id="world-canvas"></canvas>
+      <div class="map-overlay-label">// GLOBAL BOT DISTRIBUTION MAP //</div>
+      <div class="node-tooltip" id="node-tooltip">
+        <div class="tt-title" id="tt-title">NODE:--</div>
+        <div class="tt-ip"    id="tt-ip">IP:--</div>
+        <div class="tt-role"  id="tt-role">--</div>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+      <div class="sb-section">
+        <div class="sb-head">&#62; SYS.STATUS</div>
+        <div class="status-row"><span class="led" id="led-cnc"></span><span>CNC.DAEMON</span><strong id="sb-cnc-text">DOWN</strong></div>
+        <div class="status-row"><span class="led led-yellow" id="led-agent"></span><span>LDR.AGENT</span><strong id="sb-agent-text">--</strong></div>
+        <div class="status-row"><span class="led led-blue" id="led-http"></span><span>HTTP.BINS</span><strong id="sb-http-text">--</strong></div>
+        <div class="status-row"><span class="led" id="led-bots"></span><span>BOT.COUNT</span><strong id="sb-bot-text">0</strong></div>
+        <div class="status-row"><span class="led led-green-dim"></span><span>INFECT.EVT</span><strong id="sb-infect-count">0</strong></div>
+      </div>
+
+      <div class="sb-section sb-scroll">
+        <div class="sb-head">&#62; NET.NODES [<span id="sb-node-count">17</span>]</div>
+        <div class="node-list" id="node-list"></div>
+      </div>
+
+      <div class="sb-section">
+        <div class="sb-head">&#62; LAB.CTL</div>
+        <div class="lab-btn-row">
+          <button class="btn-lab" id="btn-cnc-start">[INIT CNC]</button>
+          <button class="btn-lab btn-danger" id="btn-cnc-stop">[KILL CNC]</button>
+        </div>
+        <div class="lab-btn-row">
+          <button class="btn-lab" id="btn-http-start">[HTTP UP]</button>
+          <button class="btn-lab btn-danger" id="btn-http-stop">[HTTP DN]</button>
+        </div>
+        <div class="lab-hint">C2=185.10.20.100 LDR=185.10.20.200</div>
+      </div>
+
+      <div class="sb-mini">LAST_POLL=<span id="sb-last-poll">--</span></div>
+
+    </aside>
+  </div>
+
+  <!-- BOTTOM BAR -->
+  <div class="bottom-bar">
+    <div class="tabs">
+      <button class="tab active" data-tab="attack">[ATTACK]</button>
+      <button class="tab" data-tab="command">[CMD]</button>
+      <button class="tab" data-tab="loader">[LOADER]</button>
+      <button class="tab" data-tab="terminal">[LOG]</button>
+    </div>
+
+    <!-- ATTACK TAB -->
+    <div class="tab-content" id="tab-attack">
+      <div class="atk-grid">
+        <div class="atk-row" data-victim-key="us">
+          <span class="atk-flag">US</span>
+          <span class="atk-name">AT&amp;T_USA............</span>
+          <span class="atk-ip">12.1.2.100</span>
+          <span class="atk-btns">
+            <button class="btn-atk" data-victim="us" data-method="udp" data-duration="10">[UDP/10s]</button>
+            <button class="btn-atk" data-victim="us" data-method="udp" data-duration="30">[UDP/30s]</button>
+            <button class="btn-atk" data-victim="us" data-method="syn" data-duration="20">[SYN/20s]</button>
+          </span>
+        </div>
+        <div class="atk-row" data-victim-key="cn">
+          <span class="atk-flag">CN</span>
+          <span class="atk-name">CHINATELECOM........</span>
+          <span class="atk-ip">202.97.0.100</span>
+          <span class="atk-btns">
+            <button class="btn-atk" data-victim="cn" data-method="udp" data-duration="10">[UDP/10s]</button>
+            <button class="btn-atk" data-victim="cn" data-method="udp" data-duration="30">[UDP/30s]</button>
+            <button class="btn-atk" data-victim="cn" data-method="syn" data-duration="20">[SYN/20s]</button>
+          </span>
+        </div>
+        <div class="atk-row" data-victim-key="ru">
+          <span class="atk-flag">RU</span>
+          <span class="atk-name">ROSTELECOM..........</span>
+          <span class="atk-ip">217.107.0.100</span>
+          <span class="atk-btns">
+            <button class="btn-atk" data-victim="ru" data-method="udp" data-duration="10">[UDP/10s]</button>
+            <button class="btn-atk" data-victim="ru" data-method="udp" data-duration="30">[UDP/30s]</button>
+            <button class="btn-atk" data-victim="ru" data-method="syn" data-duration="20">[SYN/20s]</button>
+          </span>
+        </div>
+        <div class="atk-row" data-victim-key="kp">
+          <span class="atk-flag">KP</span>
+          <span class="atk-name">STAR_JV_DPRK........</span>
+          <span class="atk-ip">175.45.176.100</span>
+          <span class="atk-btns">
+            <button class="btn-atk" data-victim="kp" data-method="udp" data-duration="10">[UDP/10s]</button>
+            <button class="btn-atk" data-victim="kp" data-method="udp" data-duration="30">[UDP/30s]</button>
+            <button class="btn-atk" data-victim="kp" data-method="syn" data-duration="20">[SYN/20s]</button>
+          </span>
+        </div>
+        <div class="atk-row" data-victim-key="ir">
+          <span class="atk-flag">IR</span>
+          <span class="atk-name">TCI_IRAN............</span>
+          <span class="atk-ip">5.200.0.100</span>
+          <span class="atk-btns">
+            <button class="btn-atk" data-victim="ir" data-method="udp" data-duration="10">[UDP/10s]</button>
+            <button class="btn-atk" data-victim="ir" data-method="udp" data-duration="30">[UDP/30s]</button>
+            <button class="btn-atk" data-victim="ir" data-method="syn" data-duration="20">[SYN/20s]</button>
+          </span>
+        </div>
+      </div>
+      <div class="atk-status" id="atk-status">&gt; STANDBY...</div>
+    </div>
+
+    <!-- CMD TAB -->
+    <div class="tab-content hidden" id="tab-command">
+      <div class="cmd-row">
+        <span class="prompt">botnet# </span>
+        <input id="cmd-input" class="cmd-input" type="text" autocomplete="off" spellcheck="false"
+               placeholder="botcount | udp 12.1.2.100 30 dport=80 | syn 202.97.0.100 20" />
+        <button class="btn-run" id="btn-send">[RUN]</button>
+      </div>
+      <div class="quick-cmds">
+        <span class="qlabel">QUICK:</span>
+        <button class="btn-quick" data-cmd="botcount">[botcount]</button>
+        <button class="btn-quick" data-cmd="udp 12.1.2.100 30 dport=80">[udp_us]</button>
+        <button class="btn-quick" data-cmd="syn 202.97.0.100 20 dport=80">[syn_cn]</button>
+        <button class="btn-quick" data-cmd="udp 217.107.0.100 30 dport=80">[udp_ru]</button>
+      </div>
+      <pre class="cmd-output" id="cmd-output">&gt; READY. AWAITING COMMAND...</pre>
+    </div>
+
+    <!-- LOADER TAB -->
+    <div class="tab-content hidden" id="tab-loader">
+      <div class="loader-form-wrap">
+        <form class="loader-form" id="loader-form">
+          <label>TARGET_IP<input id="ldr-ip" class="field-in" type="text" value="125.20.30.113" /></label>
+          <label>PORT<input id="ldr-port" class="field-in" type="number" value="23" min="1" max="65535" /></label>
+          <label>USER<input id="ldr-user" class="field-in" type="text" value="root" /></label>
+          <label>PASS<input id="ldr-pass" class="field-in" type="text" value="root" /></label>
+          <button type="submit" class="btn-run">[INFECT]</button>
+        </form>
+      </div>
+      <pre class="cmd-output" id="loader-log">&gt; LOADER READY. PRESS [INFECT] TO EXECUTE...</pre>
+    </div>
+
+    <!-- TERMINAL TAB -->
+    <div class="tab-content hidden" id="tab-terminal">
+      <div class="terminal" id="terminal">
+        <div class="tline sys">&gt; MIRAI BOT TRACKER v2.0 // RESEARCH LAB ONLY</div>
+        <div class="tline sys">&gt; POLLING /api/status EVERY 5000ms...</div>
+      </div>
+      <div class="term-footer">
+        <button class="btn-small" id="btn-clear-log">[CLR]</button>
+        <span id="terminal-status">polling /api/status</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+  <script src="app.js"></script>
+</body>
+</html>
