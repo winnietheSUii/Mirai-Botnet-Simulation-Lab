@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 Mirai Lab Dashboard v2 -- Flask API + World Map UI
 Isolated research lab only. Does not ship Mirai attack logic; talks to local CNC.
@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
+import time
 from pathlib import Path
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -23,6 +25,28 @@ FRONTEND = ROOT.parent / "frontend"
 app = Flask(__name__, static_folder=str(FRONTEND), static_url_path="")
 CORS(app)
 cnc = default_client()
+
+# ---------------------------------------------------------------------------
+# Background status poller — updates cache every 8s so /api/status is instant
+# ---------------------------------------------------------------------------
+_status_cache: dict = {
+    "ok": False, "cnc_up": False, "bot_total": 0,
+    "distribution": {}, "tcp_peers": 0, "peer_ips": [],
+    "error": "starting up...", "logs": [],
+}
+
+def _poller():
+    while True:
+        try:
+            data = cnc.refresh_status()
+            _status_cache.update(data)
+        except Exception as e:
+            _status_cache["error"] = str(e)
+        time.sleep(8)
+
+_poll_thread = threading.Thread(target=_poller, daemon=True, name="status-poller")
+_poll_thread.start()
+
 
 # ---------------------------------------------------------------------------
 # Static
@@ -50,7 +74,8 @@ def health():
 
 @app.get("/api/status")
 def status():
-    return jsonify(cnc.refresh_status())
+    # Return instantly from cache — background thread keeps it fresh every 8s
+    return jsonify(_status_cache)
 
 @app.get("/api/logs")
 def logs():
