@@ -1,6 +1,6 @@
-"""
+﻿"""
 CNC control helper for the lab dashboard.
-Talks to Mirai CNC admin port (default 23) over TCP — same path as telnet.
+Talks to Mirai CNC admin port (default 23) over TCP â€” same path as telnet.
 """
 
 from __future__ import annotations
@@ -98,7 +98,7 @@ class CncClient:
             self._cnc_up = False
             return False
 
-    def count_tcp_peers(self) -> int:
+    def get_tcp_peers(self) -> List[str]:
         """Count ESTABLISHED peers on CNC port (best-effort, excludes localhost)."""
         try:
             out = subprocess.check_output(
@@ -108,7 +108,7 @@ class CncClient:
                 timeout=3,
             )
         except (subprocess.SubprocessError, FileNotFoundError, OSError):
-            return -1
+            return []
 
         peers = set()
         for line in out.splitlines()[1:]:
@@ -124,7 +124,7 @@ class CncClient:
                 # still count remote bots
                 pass
             peers.add(host)
-        return len(peers)
+        return list(peers)
 
     def _login(self, sock: socket.socket) -> str:
         # Mirai CNC initialHandler() BLOCKS on the first Read before choosing
@@ -137,10 +137,10 @@ class CncClient:
         except OSError as e:
             raise RuntimeError(f"CNC wake/send failed: {e}") from e
 
-        # Consume banner / username prompt (RU "пользователь" or plain)
+        # Consume banner / username prompt (RU "Ð¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÐµÐ»ÑŒ" or plain)
         pre = self._recv_until(
             sock,
-            ("username", "user", "login", "пользователь", "password", "пароль", ":"),
+            ("username", "user", "login", "Ð¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÐµÐ»ÑŒ", "password", "Ð¿Ð°Ñ€Ð¾Ð»ÑŒ", ":"),
             max_wait=8.0,
         )
         if not strip_ansi(pre).strip():
@@ -150,16 +150,16 @@ class CncClient:
             )
 
         self._send_line(sock, self.username)
-        self._recv_until(sock, ("password", "pass", "пароль", ":"), max_wait=5.0)
+        self._recv_until(sock, ("password", "pass", "Ð¿Ð°Ñ€Ð¾Ð»ÑŒ", ":"), max_wait=5.0)
         self._send_line(sock, self.password)
-        raw = self._recv_until(sock, ("Ready", "botnet#", "error", "unknown", "ошибка"), max_wait=15.0)
+        raw = self._recv_until(sock, ("Ready", "botnet#", "error", "unknown", "Ð¾ÑˆÐ¸Ð±ÐºÐ°"), max_wait=15.0)
         plain = strip_ansi(raw)
         if "Ready" not in plain and "botnet#" not in plain:
-            # Common: wrong password → Russian error text
-            if "unknown" in plain.lower() or "ошибка" in plain:
+            # Common: wrong password â†’ Russian error text
+            if "unknown" in plain.lower() or "Ð¾ÑˆÐ¸Ð±ÐºÐ°" in plain:
                 raise RuntimeError(
                     f"CNC login rejected for user={self.username!r} "
-                    "(default lab is admin/admin — check MySQL users table)"
+                    "(default lab is admin/admin â€” check MySQL users table)"
                 )
             raise RuntimeError(
                 "CNC login failed (check admin/admin, MySQL, and prompt.txt next to cnc)"
@@ -178,7 +178,7 @@ class CncClient:
         return raw
 
     def session(self, command: Optional[str] = None) -> Dict:
-        """One-shot login → optional command → parse bot title / botcount."""
+        """One-shot login â†’ optional command â†’ parse bot title / botcount."""
         with self._lock:
             result = {
                 "ok": False,
@@ -192,7 +192,7 @@ class CncClient:
                 sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
             except OSError as e:
                 self._cnc_up = False
-                self._last_error = f"Cannot connect to CNC {self.host}:{self.port} — {e}"
+                self._last_error = f"Cannot connect to CNC {self.host}:{self.port} â€” {e}"
                 result["error"] = self._last_error
                 self.log.add("ERR", self._last_error)
                 return result
@@ -305,7 +305,7 @@ class CncClient:
                 self._last_error = None
                 self.log.add(
                     "OK",
-                    f"CNC session ok — bots={self._last_bot_total} dist={self._last_distribution or '{}'}",
+                    f"CNC session ok â€” bots={self._last_bot_total} dist={self._last_distribution or '{}'}",
                 )
             except Exception as e:
                 self._last_error = str(e)
@@ -324,14 +324,14 @@ class CncClient:
 
     def refresh_status(self) -> Dict:
         port_up = self.probe_port()
-        peers = self.count_tcp_peers()
+        peers = self.get_tcp_peers()
         if not port_up:
             return {
                 "ok": False,
                 "cnc_up": False,
                 "bot_total": 0,
                 "distribution": {},
-                "tcp_peers": peers,
+                "tcp_peers": len(peers), "peer_ips": peers,
                 "error": f"CNC not listening on {self.host}:{self.port}",
                 "logs": self.log.snapshot(),
             }
@@ -344,7 +344,7 @@ class CncClient:
             "cnc_up": True,
             "bot_total": bot_total,
             "distribution": sess.get("distribution", {}),
-            "tcp_peers": peers,
+            "tcp_peers": len(peers), "peer_ips": peers,
             "error": sess.get("error"),
             "logs": self.log.snapshot(),
             "lab": {
@@ -372,3 +372,4 @@ def default_client() -> CncClient:
         username=os.environ.get("CNC_USER", "admin"),
         password=os.environ.get("CNC_PASS", "admin"),
     )
+
