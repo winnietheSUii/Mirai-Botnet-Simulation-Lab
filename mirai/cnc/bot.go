@@ -3,6 +3,7 @@ package main
 import (
     "net"
     "time"
+    "io"
 )
 
 type Bot struct {
@@ -23,10 +24,10 @@ func (this *Bot) Handle() {
     buf := make([]byte, 2)
     for {
         this.conn.SetDeadline(time.Now().Add(180 * time.Second))
-        if n,err := this.conn.Read(buf); err != nil || n != len(buf) {
+        if _, err := io.ReadFull(this.conn, buf); err != nil {
             return
         }
-        if n,err := this.conn.Write(buf); err != nil || n != len(buf) {
+        if _, err := this.conn.Write(buf); err != nil {
             return
         }
     }
