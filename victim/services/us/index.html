@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AT&T Enterprise Core // Cloud Gateway Portal</title>
+    <style>
+        :root {
+            --att-blue: #00a8e0;
+            --att-dark: #0057b8;
+            --bg-dark: #071124;
+            --bg-card: #0d1e3d;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+        * { margin:0; padding:0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: #050d1a; border-bottom: 1px solid #1e3a5f; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; letter-spacing: 0.5px; color: #fff; }
+        .logo-globe { width: 32px; height: 32px; background: linear-gradient(135deg, var(--att-blue), var(--att-dark)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .nav-links { display: flex; gap: 24px; font-size: 14px; color: var(--text-sub); }
+        .nav-links a { color: var(--text-sub); text-decoration: none; transition: color 0.2s; }
+        .nav-links a:hover { color: #fff; }
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 24px; flex: 1; }
+        .hero { text-align: center; margin-bottom: 48px; }
+        .hero h1 { font-size: 38px; font-weight: 800; background: linear-gradient(90deg, #fff, #93c5fd); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+        .hero p { color: var(--text-sub); font-size: 16px; max-width: 650px; margin: 0 auto; }
+        .badge { display: inline-block; background: rgba(0, 168, 224, 0.15); border: 1px solid var(--att-blue); color: var(--att-blue); font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-bottom: 16px; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .card { background: var(--bg-card); border: 1px solid #1e3a5f; border-radius: 12px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transition: transform 0.2s; }
+        .card:hover { transform: translateY(-4px); }
+        .card h3 { font-size: 18px; margin-bottom: 10px; color: #fff; }
+        .card p { color: var(--text-sub); font-size: 14px; line-height: 1.6; }
+        .metric-pill { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid #1e3a5f; font-size: 13px; font-family: monospace; }
+        .metric-pill .ok { color: #34d399; font-weight: bold; }
+        footer { background: #050d1a; border-top: 1px solid #1e3a5f; padding: 20px; text-align: center; font-size: 13px; color: var(--text-sub); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-globe">🌐</div>
+            <span>AT&T Business Core // US-East-1</span>
+        </div>
+        <div class="nav-links">
+            <a href="#">Edge Compute</a>
+            <a href="#">Fiber Gateway</a>
+            <a href="#">Global DNS</a>
+            <a href="#">Status Portal</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <div class="badge">🇺🇸 UNITED STATES // AT&T BACKBONE (12.1.2.100)</div>
+            <h1>Enterprise Cloud & Data Routing Gateway</h1>
+            <p>High-availability North American fiber infrastructure providing mission-critical DNS and edge proxy services for Fortune 500 enterprises.</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>🌐 Edge Ingress Routing</h3>
+                <p>Multi-gigabit BGP Anycast routing cluster with automatic failover and layer-4 load balancing across continental US datacenters.</p>
+                <div class="metric-pill">
+                    <span>STATUS:</span>
+                    <span class="ok">200 ONLINE</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🔐 Secure Identity & IAM API</h3>
+                <p>Zero-trust enterprise single sign-on gateway processing over 450,000 corporate authentication tokens per second.</p>
+                <div class="metric-pill">
+                    <span>API HEALTH:</span>
+                    <span class="ok">99.99% SLA</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>⚡ Real-time Telemetry Proxy</h3>
+                <p>Distributed telemetry feed streaming network traffic logs directly to the internal Out-of-Band Security Operations Center.</p>
+                <div class="metric-pill">
+                    <span>OOB TUNNEL:</span>
+                    <span class="ok">eth1 ACTIVE</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 AT&T Intellectual Property. All rights reserved. Lab Simulation Target Node: 12.1.2.100.
+    </footer>
+</body>
+</html>

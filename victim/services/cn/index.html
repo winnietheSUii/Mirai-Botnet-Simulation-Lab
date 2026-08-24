@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中国电信 // 国家金融清算网关 (China Telecom Banking Gateway)</title>
+    <style>
+        * { margin:0; padding:0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif; }
+        body { background: #0c0a09; color: #f5f5f4; min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: #1c1917; border-bottom: 2px solid #b91c1c; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; color: #fecaca; }
+        .logo-icon { width: 32px; height: 32px; background: #dc2626; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; }
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 24px; flex: 1; }
+        .hero { text-align: center; margin-bottom: 48px; }
+        .hero h1 { font-size: 36px; font-weight: 800; color: #fff; margin-bottom: 12px; }
+        .hero p { color: #a8a29e; font-size: 15px; max-width: 650px; margin: 0 auto; }
+        .badge { display: inline-block; background: rgba(220, 38, 38, 0.15); border: 1px solid #ef4444; color: #f87171; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-bottom: 16px; font-family: monospace; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .card { background: #1c1917; border: 1px solid #292524; border-radius: 10px; padding: 24px; }
+        .card h3 { font-size: 18px; margin-bottom: 10px; color: #fecaca; }
+        .card p { color: #a8a29e; font-size: 14px; line-height: 1.6; }
+        .metric-pill { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid #292524; font-size: 13px; font-family: monospace; }
+        .metric-pill .ok { color: #4ade80; font-weight: bold; }
+        footer { background: #1c1917; border-top: 1px solid #292524; padding: 20px; text-align: center; font-size: 13px; color: #78716c; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon">🇨🇳</div>
+            <span>中国电信集团 // 国家级骨干金融路由节点</span>
+        </div>
+        <div style="font-size:13px; color:#a8a29e; font-family:monospace;">NODE-ID: CN-SHANGHAI-202</div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <div class="badge">🇨🇳 CHINA TELECOM CORE BACKBONE (202.97.0.100)</div>
+            <h1>国家金融同城清算与大额支付结算系统</h1>
+            <p>中国电信骨干网核心节点，承载全国跨行支付、清算报文与跨境人民币金融结算专用数据链路。</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>🏦 跨行结算通道 (Interbank Gateway)</h3>
+                <p>实时处理全国 4,000 余家银行业金融机构大额支付指令，提供毫秒级事务确认与数据加密传输。</p>
+                <div class="metric-pill">
+                    <span>系统状态:</span>
+                    <span class="ok">200 运行正常</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🔒 国密级链路安全系统 (Quantum Shield)</h3>
+                <p>支持国密 SM2/SM3/SM4 算法的端到端硬件加速加密隧道，保障核心金融数据绝对机密性。</p>
+                <div class="metric-pill">
+                    <span>加密隧道:</span>
+                    <span class="ok">100% SECURE</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📊 流量监管与 SOC 遥测</h3>
+                <p>独立带外管理网络实时监测网络流量及异常攻击行为，确保核心业务不受外部 DDoS 影响。</p>
+                <div class="metric-pill">
+                    <span>带外监控:</span>
+                    <span class="ok">eth1 正常运行</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 中国电信股份有限公司 版权所有. Target Node IP: 202.97.0.100.
+    </footer>
+</body>
+</html>

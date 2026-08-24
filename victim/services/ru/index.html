@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ростелеком // Федеральный шлюз энергетических сетей</title>
+    <style>
+        * { margin:0; padding:0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #090d16; color: #f1f5f9; min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: #0f172a; border-bottom: 2px solid #7c3aed; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 19px; color: #ddd6fe; }
+        .logo-icon { width: 32px; height: 32px; background: #7c3aed; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; }
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 24px; flex: 1; }
+        .hero { text-align: center; margin-bottom: 48px; }
+        .hero h1 { font-size: 34px; font-weight: 800; color: #fff; margin-bottom: 12px; }
+        .hero p { color: #94a3b8; font-size: 15px; max-width: 650px; margin: 0 auto; }
+        .badge { display: inline-block; background: rgba(124, 58, 237, 0.15); border: 1px solid #8b5cf6; color: #c4b5fd; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-bottom: 16px; font-family: monospace; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 10px; padding: 24px; }
+        .card h3 { font-size: 18px; margin-bottom: 10px; color: #c4b5fd; }
+        .card p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+        .metric-pill { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid #1e293b; font-size: 13px; font-family: monospace; }
+        .metric-pill .ok { color: #34d399; font-weight: bold; }
+        footer { background: #0f172a; border-top: 1px solid #1e293b; padding: 20px; text-align: center; font-size: 13px; color: #64748b; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon">🇷🇺</div>
+            <span>ПАО «Ростелеком» // Единая энергетическая система (ЕЭС)</span>
+        </div>
+        <div style="font-size:13px; color:#94a3b8; font-family:monospace;">NODE-ID: RU-MOSCOW-217</div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <div class="badge">🇷🇺 ROSTELECOM FEDERAL SCADA GATEWAY (217.107.0.100)</div>
+            <h1>Федеральный узел диспетчеризации и АСУ ТП</h1>
+            <p>Центральный сервер сбора телеметрических данных высоковольтных подстанций и гидроэлектростанций Единой энергосистемы России.</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>⚡ АСУ ТП Энергосистем (SCADA Gateway)</h3>
+                <p>Шлюз передачи данных промышленного протокола IEC 60870-5-104 в реальном времени.</p>
+                <div class="metric-pill">
+                    <span>СОСТОЯНИЕ:</span>
+                    <span class="ok">200 ОНЛАЙН</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🔒 Защищённый контур КИИ</h3>
+                <p>Соответствие требованиям безопасности критической информационной инфраструктуры (ФЗ-187).</p>
+                <div class="metric-pill">
+                    <span>КИИ УРОВЕНЬ:</span>
+                    <span class="ok">К1 АКТИВЕН</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📊 Внеполосный мониторинг (OOB SOC)</h3>
+                <p>Выделенный канал мониторинга аномалий сетевой активности и отражения распределенных атак.</p>
+                <div class="metric-pill">
+                    <span>OOB КАНАЛ:</span>
+                    <span class="ok">eth1 АКТИВЕН</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 ПАО «Ростелеком». Все права защищены. Target Node IP: 217.107.0.100.
+    </footer>
+</body>
+</html>

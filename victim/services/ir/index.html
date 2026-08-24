@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>شرکت مخابرات ایران // درگاه ملی خطوط لوله و نفت (TCI Petroleum SCADA)</title>
+    <style>
+        * { margin:0; padding:0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif; }
+        body { background: #06110e; color: #ecfdf5; min-height: 100vh; display: flex; flex-direction: column; }
+        header { background: #064e3b; border-bottom: 2px solid #10b981; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 19px; color: #a7f3d0; }
+        .logo-icon { width: 32px; height: 32px; background: #10b981; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #064e3b; font-weight: bold; }
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 24px; flex: 1; }
+        .hero { text-align: center; margin-bottom: 48px; }
+        .hero h1 { font-size: 34px; font-weight: 800; color: #fff; margin-bottom: 12px; }
+        .hero p { color: #6ee7b7; font-size: 15px; max-width: 650px; margin: 0 auto; line-height: 1.7; }
+        .badge { display: inline-block; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #a7f3d0; font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-bottom: 16px; font-family: monospace; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+        .card { background: #062a22; border: 1px solid #065f46; border-radius: 10px; padding: 24px; text-align: right; }
+        .card h3 { font-size: 18px; margin-bottom: 10px; color: #a7f3d0; }
+        .card p { color: #d1fae5; font-size: 14px; line-height: 1.7; }
+        .metric-pill { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid #065f46; font-size: 13px; font-family: monospace; }
+        .metric-pill .ok { color: #34d399; font-weight: bold; }
+        footer { background: #062a22; border-top: 1px solid #065f46; padding: 20px; text-align: center; font-size: 13px; color: #6ee7b7; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <div class="logo-icon">🇮🇷</div>
+            <span>شرکت مخابرات ایران // شبکه ملی دیسپاچینگ نفت و گاز (TCI Pipeline Gateway)</span>
+        </div>
+        <div style="font-size:13px; color:#a7f3d0; font-family:monospace;">NODE-ID: IR-TEHRAN-5</div>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <div class="badge">🇮🇷 TCI NATIONAL OIL & ENERGY DISPATCHING (5.200.0.100)</div>
+            <h1>سامانه ملی پایش و دیسپاچینگ خطوط لوله انرژی</h1>
+            <p>درگاه مرکزی مدیریت جریان نفت خام و گاز طبیعی، نظارت بر خطوط انتقال پالایشگاهی و داده‌های تله‌متری فشار خطوط لوله سراسری.</p>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>🛢️ پایش تله‌متری پالایشگاهی (SCADA Core)</h3>
+                <p>انتقال داده‌های حسگرهای فشار و دمای خطوط لوله خلیج فارس به مرکز دیسپاچینگ تهران با ضریب اطمینان بالا.</p>
+                <div class="metric-pill">
+                    <span>وضعیت سامانه:</span>
+                    <span class="ok">200 فعال</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>🔒 امنیت زیرساخت‌های حیاتی (Cyber Shield)</h3>
+                <p>ایزوله‌سازی شبکه‌های صنعتی نفت و گاز در برابر نفوذهای خارجی و حملات منع سرویس توزیع‌شده (DDoS).</p>
+                <div class="metric-pill">
+                    <span>سطح امنیت:</span>
+                    <span class="ok">حفاظت کامل</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📊 مانیتورینگ خارج از باند (OOB SOC)</h3>
+                <p>پایش برخط و بلادرنگ ترافیک ورودی شبکه جهت پیشگیری از اشباع پهنای باند و قطع ارتباط حسگرها.</p>
+                <div class="metric-pill">
+                    <span>کانال امن:</span>
+                    <span class="ok">eth1 فعال</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 شرکت مخابرات ایران (TCI). تمامی حقوق محفوظ است. Target Node IP: 5.200.0.100.
+    </footer>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise SOC Defense Monitor // Out-of-Band Telemetry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="soc-layout">
+        <!-- Top Header Bar -->
+        <header class="soc-header">
+            <div class="header-left">
+                <div class="brand-badge">
+                    <span class="pulse-dot"></span>
+                    <span class="brand-title">CLOUDSHIELD // SOC TELEMETRY</span>
+                </div>
+                <div class="node-badge" id="nodeBadge">
+                    <span class="flag-icon" id="nodeFlag">🇺🇸</span>
+                    <span class="node-name" id="nodeName">US Enterprise Node</span>
+                    <span class="node-ip" id="nodeIp">12.1.2.100</span>
+                </div>
+            </div>
+
+            <div class="header-center">
+                <div class="threat-banner nominal" id="threatBanner">
+                    <span class="threat-icon">🛡️</span>
+                    <span class="threat-text" id="threatText">THREAT LEVEL: NOMINAL // ALL SYSTEMS GO</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="interface-tag eth0">
+                    <span class="tag-dot"></span>
+                    <span>eth0 (Target Ingress)</span>
+                </div>
+                <div class="interface-tag eth1">
+                    <span class="tag-dot"></span>
+                    <span>eth1 (OOB Clean Tunnel)</span>
+                </div>
+                <div class="clock-box" id="liveClock">00:00:00 UTC</div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <main class="soc-grid">
+            <!-- Row 1: Key Metric Cards -->
+            <section class="metrics-row">
+                <!-- Card 1: Inbound Bandwidth -->
+                <div class="metric-card" id="cardBandwidth">
+                    <div class="card-header">
+                        <span class="card-label">INBOUND THROUGHPUT</span>
+                        <span class="card-tag" id="bandwidthUnits">Mbps</span>
+                    </div>
+                    <div class="card-main">
+                        <div class="metric-value" id="valBandwidth">0.00</div>
+                        <div class="metric-sub">Peak: <span id="valPeakBandwidth">0.00</span> Mbps</div>
+                    </div>
+                    <div class="gauge-bar-track">
+                        <div class="gauge-bar-fill" id="barBandwidth" style="width: 2%;"></div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Packet Rate (PPS) -->
+                <div class="metric-card" id="cardPPS">
+                    <div class="card-header">
+                        <span class="card-label">PACKET INGRESS RATE</span>
+                        <span class="card-tag">Packets/Sec</span>
+                    </div>
+                    <div class="card-main">
+                        <div class="metric-value" id="valPPS">0</div>
+                        <div class="metric-sub">Peak: <span id="valPeakPPS">0</span> PPS</div>
+                    </div>
+                    <div class="gauge-bar-track">
+                        <div class="gauge-bar-fill orange" id="barPPS" style="width: 2%;"></div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Target Service Health -->
+                <div class="metric-card" id="cardHealth">
+                    <div class="card-header">
+                        <span class="card-label">PUBLIC SERVICE HEALTH (PORT 80)</span>
+                        <span class="status-pill green" id="pillHealth">200 OK</span>
+                    </div>
+                    <div class="card-main">
+                        <div class="metric-value text-sm" id="valHealthText">OPERATIONAL</div>
+                        <div class="metric-sub">Probe Latency: <span id="valLatency">1.2</span> ms</div>
+                    </div>
+                    <div class="health-indicator-bar" id="healthBar"></div>
+                </div>
+
+                <!-- Card 4: Sunk Attack Data -->
+                <div class="metric-card" id="cardSunk">
+                    <div class="card-header">
+                        <span class="card-label">TOTAL DATA SUNK (SESSION)</span>
+                        <span class="card-tag">Volume</span>
+                    </div>
+                    <div class="card-main">
+                        <div class="metric-value" id="valTotalSunk">0.00</div>
+                        <div class="metric-sub"><span id="valTotalPackets">0</span> packets absorbed</div>
+                    </div>
+                    <div class="sunk-progress-info">Out-of-band telemetry active</div>
+                </div>
+            </section>
+
+            <!-- Row 2: Charts & Attack Analysis -->
+            <section class="charts-row">
+                <!-- Left: Live Telemetry Charts -->
+                <div class="panel-box chart-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="panel-dot"></span>
+                            <span>REAL-TIME INGRESS TELEMETRY (60 SECONDS ROLLING)</span>
+                        </div>
+                        <div class="chart-legend">
+                            <span class="legend-item"><span class="legend-dot cyan"></span> Inbound Bandwidth (Mbps)</span>
+                            <span class="legend-item"><span class="legend-dot orange"></span> Packet Rate (PPS ×100)</span>
+                        </div>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas id="telemetryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Right: Threat Vector & Resource Panel -->
+                <div class="panel-box analysis-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="panel-dot"></span>
+                            <span>SYSTEM LOAD & VECTOR HEURISTICS</span>
+                        </div>
+                    </div>
+                    
+                    <div class="analysis-content">
+                        <div class="vector-box" id="vectorBox">
+                            <div class="vector-label">DETECTED ATTACK SIGNATURE</div>
+                            <div class="vector-value" id="valVector">NONE // NORMAL TRAFFIC</div>
+                        </div>
+
+                        <!-- System CPU / RAM Gauges -->
+                        <div class="sys-gauge-group">
+                            <div class="sys-item">
+                                <div class="sys-info">
+                                    <span>Kernel CPU Load</span>
+                                    <span id="valCpu">0.0%</span>
+                                </div>
+                                <div class="sys-track">
+                                    <div class="sys-fill cyan" id="barCpu" style="width: 4%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="sys-item">
+                                <div class="sys-info">
+                                    <span>RAM Utilization</span>
+                                    <span id="valRam">0 / 512 MB</span>
+                                </div>
+                                <div class="sys-track">
+                                    <div class="sys-fill purple" id="barRam" style="width: 12%;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Action Link to Public Site -->
+                        <div class="public-service-link">
+                            <span>Target Web URL:</span>
+                            <a href="/" target="_blank" id="publicWebLink" class="btn-link">Open Public Service (Port 80) ↗</a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Row 3: Security Event Stream Console -->
+            <section class="logs-row">
+                <div class="panel-box log-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <span class="panel-dot"></span>
+                            <span>OUT-OF-BAND INCIDENT LOG STREAM</span>
+                        </div>
+                        <span class="stream-badge">LIVE STREAM</span>
+                    </div>
+                    <div class="log-console" id="logConsole">
+                        <!-- Logs dynamically injected -->
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="soc.js"></script>
+</body>
+</html>
