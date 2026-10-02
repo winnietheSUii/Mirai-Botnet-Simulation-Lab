@@ -1,8 +1,67 @@
-const $ = (id) => document.getElementById(id); let active = "us";
-function text(id,value){$(id).textContent=value}
-function fmtTime(value){return value?new Date(value*1000).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"}):"No sample"}
-function label(state){return ({online:"Online",degraded:"Degraded",unreachable:"Unreachable",stale:"Stale"})[state]||"Checking"}
-function chart(history){const c=$("latencyChart"),rect=c.getBoundingClientRect(),dpr=devicePixelRatio||1,w=rect.width,h=rect.height;c.width=w*dpr;c.height=h*dpr;const ctx=c.getContext("2d");ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);const values=history.map(x=>Math.min(x.public.latency_ms||3000,3000));const max=Math.max(1000,...values)*1.1;ctx.strokeStyle="#2a3440";ctx.lineWidth=1;for(let y=0;y<h;y+=h/4){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}if(!values.length)return;ctx.beginPath();values.forEach((v,i)=>{const x=values.length===1?w:i*w/(values.length-1),y=h-(v/max*(h-18))-9;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle=history.at(-1)?.public.state==="unreachable"?"#ef4444":"#22d3ee";ctx.lineWidth=2;ctx.stroke()}
-function render(node){const sample=node.latest, meta=node.meta;if(!sample){text("title",meta.label);return}const pub=sample.public,mgmt=sample.management,tel=sample.telemetry||{};text("title",meta.label);text("summary",pub.state==="online"?"External users can complete a public transaction. Management telemetry is collected separately.":"Public users are affected. This workspace remains reachable on the management VLAN.");const vp=document.querySelector(".verdict.public"),vm=document.querySelector(".verdict.management");vp.className=`verdict public ${pub.state}`;vm.className=`verdict management ${mgmt.state}`;text("publicStatus",label(pub.state));text("publicDetail",pub.state==="online"?`External probe completed in ${pub.latency_ms} ms.`:pub.message||"The public probe did not complete.");text("managementStatus",label(mgmt.state));text("managementDetail",mgmt.state==="online"?`Telemetry agent responded in ${mgmt.latency_ms} ms.`:"No current telemetry agent response. Last data is marked stale.");text("freshness",`Last sample ${fmtTime(sample.timestamp)}`);text("latestStatus",pub.status?`${pub.status} ${label(pub.state)}`:label(pub.state));text("latestLatency",pub.latency_ms?`${pub.latency_ms} ms`:"Timed out");const h=node.history||[],ok=h.filter(x=>x.public.state==="online").length;text("probeRate",`${ok} / ${h.length} successful`);const t=tel.telemetry||{},app=tel.app||{},sys=tel.system||{};text("ingress",t.inbound_mbps!==undefined?`${t.inbound_mbps} Mbps`:"Stale");text("pps",t.inbound_pps!==undefined?`${t.inbound_pps.toLocaleString()} pps`:"Stale");text("workers",app.capacity?`${app.active} / ${app.capacity}`:"Stale");text("rejected",app.rejected??"Stale");text("cpu",sys.cpu_pct!==undefined?`${sys.cpu_pct}%`:"Stale");text("memory",sys.memory?`${sys.memory.pct}%`:"Stale");$("events").innerHTML=(node.events||[]).length?node.events.map(e=>`<li class="${e.kind}"><time>${fmtTime(e.timestamp)}</time>${e.message}</li>`).join(""):"<li>Waiting for a state change.</li>";chart(h)}
-async function refresh(){try{const r=await fetch("/api/overview",{cache:"no-store"});if(!r.ok)throw Error();const data=await r.json();render(data.victims[active])}catch{document.querySelector(".live").lastChild.textContent=" Observer unavailable"}}
-document.querySelectorAll(".tab").forEach(button=>button.addEventListener("click",()=>{active=button.dataset.victim;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===button));refresh()}));$("presentation").addEventListener("click",e=>{const on=document.body.classList.toggle("presentation-mode");e.currentTarget.setAttribute("aria-pressed",String(on));e.currentTarget.textContent=on?"Exit presentation mode":"Presentation mode"});window.addEventListener("resize",refresh);refresh();setInterval(refresh,1000);
+const $ = (id) => document.getElementById(id);
+let active = "us";
+let publicOnly = false;
+
+function text(id, value) { $(id).textContent = value; }
+function stateLabel(state) { return ({ online: "ONLINE", degraded: "DEGRADED", unreachable: "UNREACHABLE", stale: "STALE" })[state] || "CHECKING"; }
+function shortTime(value) { return value ? new Date(value * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "--:--:--"; }
+function fullTime(value) { return value ? new Date(value * 1000).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", year: "numeric", month: "short", day: "numeric", hour12: false }) : "No sample"; }
+function nodeId(key) { return `OBS-${key.toUpperCase()}-${String(new Date().getUTCDate()).padStart(2, "0")}`; }
+
+function chart(history) {
+  const canvas = $("latencyChart");
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, rect.width), h = Math.max(1, rect.height);
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, w, h);
+  const pad = { x: 12, y: 20 }; const innerW = w - pad.x * 2, innerH = h - pad.y * 2;
+  ctx.lineWidth = 1; ctx.strokeStyle = "rgba(189, 213, 226, .1)";
+  for (let i = 0; i < 5; i += 1) { const y = pad.y + innerH * i / 4; ctx.beginPath(); ctx.moveTo(pad.x, y); ctx.lineTo(w - pad.x, y); ctx.stroke(); }
+  if (!history.length) return;
+  const values = history.map((s) => s.public.state === "unreachable" ? 3000 : Math.min(s.public.latency_ms || 3000, 3000));
+  const max = Math.max(1000, ...values) * 1.08;
+  const point = (value, i) => ({ x: pad.x + (values.length === 1 ? innerW : innerW * i / (values.length - 1)), y: pad.y + innerH - Math.min(value / max, 1) * innerH });
+  const lastState = history.at(-1)?.public.state;
+  ctx.beginPath(); values.forEach((value, i) => { const p = point(value, i); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
+  ctx.strokeStyle = lastState === "unreachable" ? "#ff4d6d" : lastState === "degraded" ? "#f6ae2d" : "#58e6ff"; ctx.lineWidth = 2; ctx.stroke();
+  history.forEach((sample, i) => { if (sample.public.state === "unreachable") { const p = point(values[i], i); ctx.fillStyle = "#ff4d6d"; ctx.fillRect(p.x - 2.5, p.y - 2.5, 5, 5); } });
+}
+
+function traceMarkup(trace) {
+  const rows = publicOnly ? trace.filter((row) => row.plane === "PUBLIC") : trace;
+  if (!rows.length) return "<li>Waiting for observer evidence.</li>";
+  return rows.slice(0, 32).map((row) => `<li class="trace-row ${row.result}"><time>${shortTime(row.timestamp)}</time><b class="plane ${row.plane.toLowerCase()}">${row.plane}</b><span class="destination">${row.destination}</span><span class="request">${row.protocol} ${row.target}</span><span class="result">${row.status} · ${stateLabel(row.result)}</span><span class="rtt">${row.latency_ms}ms</span><span class="trace-detail">${row.detail}</span></li>`).join("");
+}
+
+function render(node) {
+  const sample = node.latest, meta = node.meta;
+  text("title", meta.label); text("targetIp", meta.public_ip); text("caseId", nodeId(active));
+  if (!sample) return;
+  const pub = sample.public, mgmt = sample.management, telemetry = sample.telemetry || {};
+  const pubLabel = stateLabel(pub.state), mgmtLabel = stateLabel(mgmt.state);
+  text("summary", pub.state === "online" ? "Public transactions are completing. The separate management path is collecting independent evidence." : "Public users are affected. The out-of-band workspace continues to collect telemetry on its separate management route.");
+  const publicBox = $("publicVerdict"), managementBox = $("managementVerdict"), stage = $("routeStage");
+  publicBox.className = `path-verdict public ${pub.state}`; managementBox.className = `path-verdict management ${mgmt.state}`; stage.className = `route-stage public-${pub.state} oob-${mgmt.state}`;
+  text("publicStatus", pubLabel); text("publicDetail", pub.state === "online" ? `External transaction completed in ${pub.latency_ms} ms.` : pub.message || "External transaction did not complete.");
+  text("managementStatus", mgmtLabel); text("managementDetail", mgmt.state === "online" ? `Telemetry agent answered in ${mgmt.latency_ms} ms.` : "The management route has no current reply.");
+  text("publicRouteReadout", pubLabel); text("oobRouteReadout", mgmtLabel); text("freshness", `LAST SAMPLE ${fullTime(sample.timestamp)}`);
+  text("latestStatus", pub.status ? `${pub.status} · ${pubLabel}` : pubLabel); text("latestLatency", pub.latency_ms ? `${pub.latency_ms} ms` : "TIMEOUT");
+  const history = node.history || []; text("probeRate", `${history.filter((entry) => entry.public.state === "online").length} / ${history.length}`);
+  const t = telemetry.telemetry || {}, app = telemetry.app || {}, system = telemetry.system || {};
+  text("ingress", t.inbound_mbps !== undefined ? `${t.inbound_mbps} Mbps` : "STALE"); text("pps", t.inbound_pps !== undefined ? `${t.inbound_pps.toLocaleString()} pps` : "STALE"); text("workers", app.capacity ? `${app.active} / ${app.capacity}` : "STALE"); text("rejected", app.rejected ?? "STALE"); text("cpu", system.cpu_pct !== undefined ? `${system.cpu_pct}%` : "STALE"); text("memory", system.memory ? `${system.memory.pct}%` : "STALE");
+  $("trace").innerHTML = traceMarkup(node.trace || []);
+  $("events").innerHTML = (node.events || []).length ? node.events.map((event) => `<li class="${event.kind}"><time>${fullTime(event.timestamp)}</time><span>${event.message}</span></li>`).join("") : "<li>Waiting for a state change.</li>";
+  chart(history);
+}
+
+async function refresh() {
+  try { const response = await fetch("/api/overview", { cache: "no-store" }); if (!response.ok) throw new Error("observer unavailable"); const data = await response.json(); render(data.victims[active]); }
+  catch { document.querySelector(".observer").classList.add("offline"); text("summary", "The local observer endpoint is unavailable. No conclusion should be drawn from stale data."); }
+}
+
+document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => { active = button.dataset.victim; document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === button)); refresh(); }));
+$("traceFilter").addEventListener("click", (event) => { publicOnly = !publicOnly; event.currentTarget.setAttribute("aria-pressed", String(publicOnly)); event.currentTarget.textContent = publicOnly ? "Public only" : "Public + OOB"; refresh(); });
+$("presentation").addEventListener("click", (event) => { const activeMode = document.body.classList.toggle("presentation-mode"); event.currentTarget.setAttribute("aria-pressed", String(activeMode)); event.currentTarget.textContent = activeMode ? "Exit focus" : "Focus display"; });
+setInterval(() => { $("clock").textContent = `${new Date().toISOString().slice(11, 19)} UTC`; }, 1000);
+window.addEventListener("resize", refresh); refresh(); setInterval(refresh, 1000);

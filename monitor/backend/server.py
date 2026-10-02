@@ -48,7 +48,15 @@ def get_json(url: str, timeout: float = 3.0) -> tuple[int, dict, float, str | No
 class Store:
     def __init__(self):
         self.lock = threading.Lock()
-        self.nodes = {key: {"history": deque(maxlen=600), "events": deque(maxlen=60), "latest": None} for key in NODES}
+        self.nodes = {
+            key: {
+                "history": deque(maxlen=600),
+                "events": deque(maxlen=60),
+                "trace": deque(maxlen=180),
+                "latest": None,
+            }
+            for key in NODES
+        }
 
     def poll_node(self, key: str) -> None:
         config = NODES[key]
@@ -65,6 +73,30 @@ class Store:
             previous = node["latest"]
             node["latest"] = sample
             node["history"].append(sample)
+            node["trace"].appendleft({
+                "timestamp": now,
+                "plane": "PUBLIC",
+                "source": "external-observer",
+                "destination": config["public_ip"],
+                "target": "/api/transaction-probe",
+                "protocol": "HTTP",
+                "status": status or "TIMEOUT",
+                "latency_ms": latency,
+                "result": public_state,
+                "detail": public_data.get("message") or error or "transaction probe complete",
+            })
+            node["trace"].appendleft({
+                "timestamp": now,
+                "plane": "OOB",
+                "source": "soc-monitor",
+                "destination": config["management_ip"],
+                "target": "/api/metrics",
+                "protocol": "HTTP",
+                "status": agent_status or "TIMEOUT",
+                "latency_ms": agent_latency,
+                "result": management_state,
+                "detail": agent_error or "telemetry sample received",
+            })
             if not previous or previous["public"]["state"] != public_state:
                 node["events"].appendleft({"timestamp": now, "kind": public_state, "message": self.event_message(config["label"], public_state, latency)})
 
@@ -89,7 +121,13 @@ class Store:
         with self.lock:
             result = {}
             for key, data in self.nodes.items():
-                result[key] = {"meta": NODES[key], "latest": data["latest"], "history": list(data["history"])[-90:], "events": list(data["events"])}
+                result[key] = {
+                    "meta": NODES[key],
+                    "latest": data["latest"],
+                    "history": list(data["history"])[-90:],
+                    "events": list(data["events"]),
+                    "trace": list(data["trace"])[:100],
+                }
             return {"generated_at": time.time(), "victims": result}
 
 

@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const state = $("serviceState");
-const setState = (kind, text) => { state.className = `service-state ${kind}`; state.lastElementChild.textContent = text; };
+const setState = (kind, text) => { state.className = `service-state ${kind}`; state.lastElementChild.textContent = text; document.body.dataset.serviceState = kind; };
 async function api(path, options = {}) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 5000); try { const r = await fetch(path, {...options, signal: controller.signal}); const data = await r.json(); if (!r.ok) throw new Error(data.message || "The service is temporarily unavailable."); return data; } finally { clearTimeout(timer); } }
 function errorMessage(error) { return error.name === "AbortError" ? "The request timed out. Please try again in a few minutes." : error.message; }
 async function loadCircuits() { try { const data = await api("/api/circuits"); $("circuitRows").innerHTML = data.circuits.map(c => `<tr><td>${c.location}</td><td>${c.id}</td><td>${c.service}</td><td><span class="status ${c.state === "Operational" ? "ok" : "review"}">${c.state}</span></td><td>${c.checked}</td></tr>`).join(""); setState("ok", "Service available"); } catch (error) { $("circuitRows").innerHTML = `<tr><td colspan="5">We couldn't load circuit status. ${errorMessage(error)}</td></tr>`; setState("error", "Service unavailable"); } }

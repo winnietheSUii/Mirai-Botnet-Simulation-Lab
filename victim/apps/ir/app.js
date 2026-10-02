@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const state = $("serviceState");
-function setState(kind, text) { state.className = `service-state ${kind}`; state.lastElementChild.textContent = text; }
+function setState(kind, text) { state.className = `service-state ${kind}`; state.lastElementChild.textContent = text; document.body.dataset.serviceState = kind; }
 async function api(path, options = {}) { const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 5000); try { const response = await fetch(path, {...options, signal: controller.signal}); const data = await response.json(); if (!response.ok) throw new Error(data.message || "This service is temporarily unavailable."); return data; } finally { clearTimeout(timer); } }
 function message(error) { return error.name === "AbortError" ? "The request timed out. Please try again in a few minutes." : error.message; }
 async function loadRegions() { try { const data = await api("/api/regions"); $("regionList").innerHTML = data.regions.map(r => `<div><strong>${r.name}</strong><span>${r.state}</span></div>`).join(""); setState("ok", "Bulletin service available"); } catch (error) { $("regionList").innerHTML = `<div>We couldn't load current supply information.</div>`; setState("error", "Bulletin service unavailable"); } }
