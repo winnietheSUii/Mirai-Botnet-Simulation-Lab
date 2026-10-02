@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6f8fb">
+  <title>Northline Connectivity</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to service overview</a>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Northline Connectivity home"><span class="mark" aria-hidden="true">N</span><span>Northline <b>Connectivity</b></span></a>
+    <nav aria-label="Primary"><a class="active" href="#overview">Overview</a><a href="#circuits">Circuits</a><a href="#cases">Service cases</a></nav>
+    <button class="avatar" type="button" aria-label="Acme Corporation account">AC</button>
+  </header>
+  <main id="main" class="shell">
+    <section class="intro" id="overview">
+      <div><p class="eyebrow">Acme Corporation</p><h1>Connectivity that keeps teams moving.</h1><p class="lede">See branch circuit health, run a connection check, and open a service case from one place.</p></div>
+      <div class="service-state" id="serviceState" aria-live="polite"><span class="dot"></span><span>Checking service availability</span></div>
+    </section>
+    <section class="workspace" aria-label="Connectivity workspace">
+      <div class="section-heading"><div><p class="eyebrow">Branch circuits</p><h2>Current service status</h2></div><button class="button primary" id="diagnose" type="button">Run connection check</button></div>
+      <div class="table-wrap" id="circuits" tabindex="0"><table><thead><tr><th>Location</th><th>Circuit</th><th>Service</th><th>Status</th><th>Last checked</th></tr></thead><tbody id="circuitRows"><tr><td colspan="5"><span class="skeleton wide"></span></td></tr><tr><td colspan="5"><span class="skeleton wide"></span></td></tr></tbody></table></div>
+      <section class="result" id="diagnosticResult" hidden aria-live="polite"></section>
+    </section>
+    <section class="case-section" id="cases"><div><p class="eyebrow">Support</p><h2>Service case</h2><p>Open a case when a branch needs follow-up. The lab service returns a real API response.</p></div><div class="case-action"><p><strong>Need a hand?</strong><br><span>Start a case for the selected circuit.</span></p><button class="button secondary" id="createCase" type="button">Create service case</button><p class="action-message" id="caseMessage" aria-live="polite"></p></div></section>
+  </main>
+  <footer>Northline Connectivity Lab Service <span aria-hidden="true">·</span> Public application path</footer>
+  <script src="app.js"></script>
+</body>
+</html>

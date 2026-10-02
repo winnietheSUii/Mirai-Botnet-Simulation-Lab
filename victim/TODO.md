@@ -25,11 +25,11 @@ This subsystem implements **Out-of-Band (OOB) Dual-NIC Architecture**:
 
 | Victim ID | Country / Role | Target VLAN | `eth0` (Public IP) | `eth0` Gateway | Mgmt VLAN | `eth1` (OOB Mgmt IP) | Public Service URL | SOC Monitor URL |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **victim-us** | 🇺🇸 USA (AT&T Enterprise) | `40` | `12.1.2.100/24` | `12.1.2.1` | `10` | `185.10.20.101/24` | `http://12.1.2.100` (`us.mirai.lab`) | `http://185.10.20.101:8080` |
+| **victim-us** | 🇺🇸 USA (Northline Connectivity) | `40` | `12.1.2.100/24` | `12.1.2.1` | `10` | `185.10.20.101/24` | `http://12.1.2.100` (`us.mirai.lab`) | External SOC: `http://185.10.20.110:8080` |
 | **victim-cn** | 🇨🇳 China (China Telecom) | `41` | `202.97.0.100/24` | `202.97.0.1` | `10` | `185.10.20.102/24` | `http://202.97.0.100` (`cn.mirai.lab`) | `http://185.10.20.102:8080` |
 | **victim-ru** | 🇷🇺 Russia (Rostelecom) | `42` | `217.107.0.100/24` | `217.107.0.1` | `10` | `185.10.20.103/24` | `http://217.107.0.100` (`ru.mirai.lab`) | `http://185.10.20.103:8080` |
 | **victim-kp** | 🇰🇵 N.Korea (Star JV News) | `43` | `175.45.176.100/24` | `175.45.176.1` | `10` | `185.10.20.104/24` | `http://175.45.176.100` (`kp.mirai.lab`) | `http://185.10.20.104:8080` |
-| **victim-ir** | 🇮🇷 Iran (TCI Petroleum) | `44` | `5.200.0.100/24` | `5.200.0.1` | `10` | `185.10.20.105/24` | `http://5.200.0.100` (`ir.mirai.lab`) | `http://185.10.20.105:8080` |
+| **victim-ir** | 🇮🇷 Iran (Pars Energy Bulletin) | `44` | `5.200.0.100/24` | `5.200.0.1` | `10` | `185.10.20.105/24` | `http://5.200.0.100` (`ir.mirai.lab`) | External SOC: `http://185.10.20.110:8080` |
 
 ---
 
@@ -102,5 +102,6 @@ cd ~/Mirai-Source-Code/victim
 ```
 
 ### Step 3: Verify During Attack Simulation
-- Open Public Web: `http://12.1.2.100` (Fails when flooded)
-- Open SOC Dashboard: `http://185.10.20.101:8080` (Shows real-time bandwidth spike to ~100+ Mbps)
+- Open Public Web: `http://12.1.2.100` (slows, sheds dynamic requests, or fails under the isolated lab condition)
+- Open the external SOC: `http://185.10.20.110:8080` (compares public external probes with management telemetry)
+- See `DEPLOYMENT.md` and `../monitor/README.md` for the dynamic US/IR deployment.

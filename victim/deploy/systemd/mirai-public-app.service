@@ -1,0 +1,19 @@
+[Unit]
+Description=Mirai lab bounded public victim application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/mirai-victim/public.env
+WorkingDirectory=/opt/Mirai-Botnet-Simulation-Lab/victim
+ExecStart=/usr/bin/python3 backend/public_app.py
+Restart=on-failure
+RestartSec=2
+MemoryMax=550M
+CPUWeight=100
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

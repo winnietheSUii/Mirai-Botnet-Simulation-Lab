@@ -78,9 +78,10 @@ fi
 ok "Monitoring Kernel Telemetry on interface: $TARGET_IFACE"
 
 # 4. Clean up any existing instances
-info "Stopping previous instances on ports 80 / 8080..."
+info "Stopping previous instances on public and telemetry ports..."
 fuser -k 80/tcp 2>/dev/null || true
 fuser -k 8080/tcp 2>/dev/null || true
+fuser -k 9081/tcp 2>/dev/null || true
 sleep 1
 
 # 5. Export and Execute Server
@@ -88,6 +89,27 @@ export VICTIM_COUNTRY="$COUNTRY"
 export PUBLIC_PORT="${PUBLIC_PORT:-80}"
 export MGMT_PORT="${MGMT_PORT:-8080}"
 export TARGET_IFACE="$TARGET_IFACE"
+
+# US and IR are dynamic public applications. Their SOC lives on the separate
+# monitor LXC, while the local agent exposes management telemetry on :9081.
+if [[ "$COUNTRY" == "us" || "$COUNTRY" == "ir" ]]; then
+    case "$COUNTRY" in
+        us) DEFAULT_MGMT_IP="185.10.20.101" ;;
+        ir) DEFAULT_MGMT_IP="185.10.20.105" ;;
+    esac
+    export PUBLIC_BIND="${PUBLIC_BIND:-$TARGET_IP}"
+    export PUBLIC_APP_PORT="${PUBLIC_APP_PORT:-$PUBLIC_PORT}"
+    export MGMT_BIND="${MGMT_BIND:-$DEFAULT_MGMT_IP}"
+    export MGMT_AGENT_PORT="${MGMT_AGENT_PORT:-9081}"
+    export PUBLIC_APP_CAPACITY="${PUBLIC_APP_CAPACITY:-6}"
+    echo ""
+    ok "Starting dynamic public application and management telemetry agent:"
+    echo "   - Public app: http://$PUBLIC_BIND:$PUBLIC_APP_PORT"
+    echo "   - Telemetry:  http://$MGMT_BIND:$MGMT_AGENT_PORT/api/metrics"
+    echo "   - SOC:        external Monitor LXC (default 185.10.20.110:8080)"
+    echo ""
+    exec python3 backend/run_dynamic_victim.py
+fi
 
 echo ""
 ok "Starting Dual-Port Services:"

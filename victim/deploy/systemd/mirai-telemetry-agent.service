@@ -1,0 +1,19 @@
+[Unit]
+Description=Mirai lab victim management telemetry agent
+After=network-online.target mirai-public-app.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/mirai-victim/public.env
+WorkingDirectory=/opt/Mirai-Botnet-Simulation-Lab/victim
+ExecStart=/usr/bin/python3 backend/telemetry_agent.py
+Restart=on-failure
+RestartSec=2
+MemoryMax=128M
+CPUWeight=900
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

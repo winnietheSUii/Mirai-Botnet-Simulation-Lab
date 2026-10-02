@@ -11,9 +11,10 @@ import urllib.request
 import urllib.error
 
 class TelemetryCollector:
-    def __init__(self, target_iface: str = "eth0", public_port: int = 80):
+    def __init__(self, target_iface: str = "eth0", public_port: int = 80, public_host: str = "127.0.0.1"):
         self.target_iface = target_iface
         self.public_port = public_port
+        self.public_host = public_host
         
         self.prev_time = time.time()
         self.prev_rx_bytes = 0
@@ -129,7 +130,7 @@ class TelemetryCollector:
 
     def _check_web_health(self) -> dict:
         """Probe local web server on public port to test responsiveness under flood."""
-        url = f"http://127.0.0.1:{self.public_port}/"
+        url = f"http://{self.public_host}:{self.public_port}/"
         t0 = time.time()
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "SOC-HealthProbe/1.0"})
