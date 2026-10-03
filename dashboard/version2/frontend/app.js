@@ -269,6 +269,28 @@ function drawNodes() {
       ctx.lineWidth = 1;
       ctx.stroke();
 
+      // Rotating targeting reticle (victims only) -- idle HUD feel
+      if (node.type === "victim") {
+        ctx.save();
+        ctx.translate(x,y);
+        ctx.rotate((now/4200) % (Math.PI*2));
+        ctx.setLineDash([3,5]);
+        ctx.strokeStyle = "#ff222295";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(0,0,s.r+9,0,Math.PI*2); ctx.stroke();
+        ctx.restore();
+        ctx.save();
+        ctx.translate(x,y);
+        ctx.rotate(-(now/2600) % (Math.PI*2));
+        ctx.strokeStyle = "#ff222250";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(-(s.r+16),0); ctx.lineTo(-(s.r+9),0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(s.r+9,0); ctx.lineTo(s.r+16,0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,-(s.r+16)); ctx.lineTo(0,-(s.r+9)); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0,s.r+9); ctx.lineTo(0,s.r+16); ctx.stroke();
+        ctx.restore();
+      }
+
       projNodes.push({...node, px:x, py:y, hr:s.r+10});
     }
   }
@@ -332,15 +354,24 @@ function drawArcs() {
 function drawImpacts(now) {
   const live = [];
   for (const im of impacts) {
+    const span = im.big ? 0.9 : 0.55;
     const age = (now - im.time)/1000;
-    if (age > 0.55) continue;
+    if (age > span) continue;
     live.push(im);
-    const p = age/0.55;
+    const p = age/span;
+    const maxR = im.big ? 70 : 26;
     ctx.beginPath();
-    ctx.arc(im.x, im.y, 5 + p*26, 0, Math.PI*2);
+    ctx.arc(im.x, im.y, 5 + p*maxR, 0, Math.PI*2);
     ctx.strokeStyle = im.color + Math.floor((1-p)*220).toString(16).padStart(2,"0");
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = im.big ? 3 : 2.2;
     ctx.stroke();
+    if (im.big) {
+      ctx.beginPath();
+      ctx.arc(im.x, im.y, 5 + p*maxR*0.6, 0, Math.PI*2);
+      ctx.strokeStyle = im.color + Math.floor((1-p)*140).toString(16).padStart(2,"0");
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
   }
   impacts = live;
 }
@@ -388,6 +419,99 @@ canvas.addEventListener("mousemove", e => {
   }
 });
 canvas.addEventListener("mouseleave",()=>{ tooltip.style.top="-999px"; });
+
+/* ---- TARGETING HUD (click a victim node) ------------------ */
+const hud        = document.getElementById("targetHud");
+const hudFlag     = document.getElementById("hudFlag");
+const hudName     = document.getElementById("hudName");
+const hudIp       = document.getElementById("hudIp");
+const screenFlash = document.getElementById("screenFlash");
+let hudTarget   = null;
+let hudMethod   = "udp";
+let hudDuration = 10;
+
+function flashScreen(){
+  screenFlash.classList.remove("fire");
+  void screenFlash.offsetWidth; // restart animation
+  screenFlash.classList.add("fire");
+}
+
+function openHud(node, px, py){
+  hudTarget = node;
+  hudFlag.textContent  = node.id?.startsWith("v_") ? node.id.slice(2).toUpperCase() : "TGT";
+  hudName.textContent  = node.label;
+  hudIp.textContent    = node.ip;
+  const mapRect = canvas.parentElement.getBoundingClientRect();
+  let left = px + 16, top = py - 10;
+  if (left + 250 > mapRect.width) left = px - 254;
+  if (top + 300 > mapRect.height) top = mapRect.height - 310;
+  if (top < 8) top = 8;
+  hud.style.left = left + "px";
+  hud.style.top  = top + "px";
+  hud.hidden = false;
+}
+function closeHud(){ hud.hidden = true; hudTarget = null; }
+
+canvas.addEventListener("click", e => {
+  const r  = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  let hit = null, bestDist = Infinity;
+  for (const n of projNodes) {
+    if (n.type !== "victim") continue;
+    const d = Math.hypot(mx-n.px, my-n.py);
+    if (d < n.hr+6 && d < bestDist) { hit=n; bestDist=d; }
+  }
+  if (hit) openHud(hit, mx, my); else closeHud();
+});
+document.getElementById("hudClose")?.addEventListener("click", closeHud);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeHud(); });
+
+document.querySelectorAll(".hud-method").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".hud-method").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    hudMethod = btn.dataset.method;
+  });
+});
+document.querySelectorAll(".hud-dur").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".hud-dur").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    hudDuration = parseInt(btn.dataset.dur);
+  });
+});
+
+document.getElementById("hudLaunch")?.addEventListener("click", async ()=>{
+  if (!hudTarget || !hudTarget.victimKey) return;
+  const victim = hudTarget.victimKey, method = hudMethod, dur = hudDuration, vnode = hudTarget;
+
+  flashScreen();
+  const {x:tx,y:ty} = project(vnode.lat, vnode.lon, W, H);
+  impacts.push({ x:tx, y:ty, time:Date.now(), color:"#ffffff", big:true });
+  fireArcs(victim, dur, method);
+
+  const row = document.querySelector(`.atk-row[data-victim-key="${victim}"]`);
+  if (row) row.classList.add("firing");
+  const atkSt = document.getElementById("atk-status");
+  if (atkSt) atkSt.textContent = "> HUD LAUNCH: "+method.toUpperCase()+" >> "+vnode.ip+" // "+dur+"s";
+  closeHud();
+
+  try{
+    const r = await fetch(API_BASE+"/api/attack",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({target:victim,method,duration:dur,dport:80,ip:vnode.ip})
+    });
+    const d = await r.json();
+    const ok = d.ok !== false;
+    toast(ok?"ATK: "+method.toUpperCase()+" >> "+vnode.label:"ERR: "+d.error, !ok);
+    termLog("[ATK] "+method+" "+vnode.ip+" "+dur+"s >> "+(ok?"OK":"ERR: "+d.error), ok?"cmd":"err");
+  }catch(e){ toast("FETCH ERR",true); }
+
+  setTimeout(()=>{
+    if (row) row.classList.remove("firing");
+    if (atkSt) atkSt.textContent = "> STANDBY...";
+  }, dur*1000+500);
+});
 
 /* ---- FIRE ATTACK ARCS ------------------------------------
    Waves of comet-beams launch continuously for the FULL attack
@@ -681,6 +805,9 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
     const atkSt=document.getElementById("atk-status");
     if(atkSt) atkSt.textContent="> LAUNCHING: "+method.toUpperCase()+" >> "+vnode.ip+" // "+dur+"s";
 
+    flashScreen();
+    const {x:tx0,y:ty0} = project(vnode.lat, vnode.lon, W, H);
+    impacts.push({ x:tx0, y:ty0, time:Date.now(), color:"#ffffff", big:true });
     fireArcs(victim, dur, method);
 
     try{

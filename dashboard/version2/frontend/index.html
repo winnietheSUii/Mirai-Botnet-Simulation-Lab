@@ -45,6 +45,30 @@
         <div class="tt-ip"    id="tt-ip">IP:--</div>
         <div class="tt-role"  id="tt-role">--</div>
       </div>
+      <div class="target-hud" id="targetHud" hidden>
+        <div class="hud-corner tl"></div><div class="hud-corner tr"></div><div class="hud-corner bl"></div><div class="hud-corner br"></div>
+        <div class="hud-head">
+          <span class="hud-flag" id="hudFlag">--</span>
+          <span class="hud-name" id="hudName">NO TARGET</span>
+          <button class="hud-close" id="hudClose" aria-label="Close targeting panel" type="button">&times;</button>
+        </div>
+        <div class="hud-ip" id="hudIp">0.0.0.0</div>
+        <div class="hud-section-label">&#9656; ATTACK METHOD</div>
+        <div class="hud-methods" id="hudMethods">
+          <button class="hud-method active" data-method="udp" type="button">UDP<small>FLOOD</small></button>
+          <button class="hud-method" data-method="syn" type="button">SYN<small>FLOOD</small></button>
+          <button class="hud-method" data-method="ack" type="button">ACK<small>FLOOD</small></button>
+          <button class="hud-method" data-method="stomp" type="button">STOMP<small>VSE</small></button>
+        </div>
+        <div class="hud-section-label">&#9656; DURATION</div>
+        <div class="hud-durations" id="hudDurations">
+          <button class="hud-dur active" data-dur="10" type="button">10s</button>
+          <button class="hud-dur" data-dur="30" type="button">30s</button>
+          <button class="hud-dur" data-dur="60" type="button">60s</button>
+        </div>
+        <button class="hud-launch" id="hudLaunch" type="button">&#9608; LAUNCH ATTACK &#9608;</button>
+      </div>
+      <div class="screen-flash" id="screenFlash" aria-hidden="true"></div>
     </div>
 
     <!-- SIDEBAR -->
