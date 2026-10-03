@@ -13,6 +13,7 @@
   --glow-dim:0 0 2px #00ff4140;
   --font:"Share Tech Mono","Courier New",monospace;
   --fz:13px;
+  --ease:cubic-bezier(.16,1,.3,1);
 }
 
 html,body{height:100%;background:var(--bg);color:var(--green);font-family:var(--font);font-size:var(--fz);line-height:1.35;overflow:hidden}
@@ -160,7 +161,9 @@ body::after{
 }
 .hud-method small{display:block;font-size:8px;letter-spacing:1px;opacity:.7}
 .hud-method:hover,.hud-dur:hover{border-color:var(--green-dim);color:var(--green)}
-.hud-method.active,.hud-dur.active{border-color:var(--red);color:var(--red);background:#1a0000;box-shadow:inset 0 0 8px #ff222230}
+.hud-method.active,.hud-dur.active{border-color:var(--red);color:var(--red);background:#1a0000;animation:hudChipLock 1.8s ease-in-out infinite}
+@keyframes hudChipLock{0%,100%{box-shadow:inset 0 0 8px #ff222230}50%{box-shadow:inset 0 0 14px #ff222260}}
+@media(prefers-reduced-motion:reduce){.hud-method.active,.hud-dur.active{animation:none;box-shadow:inset 0 0 8px #ff222230}}
 .hud-launch{
   width:100%;background:var(--red-dim);border:1px solid var(--red);color:#fff;
   font-family:var(--font);font-size:13px;font-weight:bold;letter-spacing:2px;
@@ -176,7 +179,11 @@ body::after{
   display:flex;flex-direction:column;overflow:hidden;
   border-left:1px solid var(--border);
 }
-.sb-section{border-bottom:1px solid var(--border);padding:8px 10px;flex-shrink:0}
+.sb-section{border-bottom:1px solid var(--border);padding:8px 10px;flex-shrink:0;animation:sbIn .4s var(--ease) both}
+.sb-section:nth-of-type(1){animation-delay:.02s}
+.sb-section:nth-of-type(2){animation-delay:.08s}
+.sb-section:nth-of-type(3){animation-delay:.14s}
+@keyframes sbIn{from{opacity:0;translate:8px 0}to{opacity:1;translate:0 0}}
 .sb-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
 .sb-head{
   position:relative;overflow:hidden;
@@ -192,8 +199,11 @@ body::after{
 @keyframes sbScan{to{left:100%}}
 .sb-mini{padding:5px 10px;font-size:11px;color:var(--green-dim)}
 
-.status-row{display:flex;align-items:center;gap:7px;margin:5px 0;font-size:12px}
-.status-row strong{margin-left:auto;color:var(--green);font-size:11px;letter-spacing:1px}
+.status-row{display:flex;align-items:center;gap:7px;margin:5px -4px;padding:3px 4px;font-size:12px;border-radius:2px;transition:background .15s ease}
+.status-row:hover{background:var(--muted)}
+.status-row strong{margin-left:auto;color:var(--green);font-size:11px;letter-spacing:1px;transition:color .15s ease,text-shadow .15s ease}
+.status-row strong.flash{color:#fff;text-shadow:0 0 8px var(--green),0 0 16px var(--green);animation:statFlash .5s ease-out}
+@keyframes statFlash{from{color:#fff}to{color:var(--green)}}
 
 /* LEDs */
 .led{

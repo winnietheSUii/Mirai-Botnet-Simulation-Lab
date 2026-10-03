@@ -162,6 +162,7 @@ function project(lat, lon, w, h) {
 const canvas = document.getElementById("world-canvas");
 const ctx    = canvas.getContext("2d");
 let W=0, H=0;
+let hideLoaderNode = false; // hides the yellow LOADER dot on the map
 let projNodes = [];
 let arcs = [];
 let impacts = [];
@@ -184,12 +185,112 @@ const NODE_STYLE = {
 };
 
 /* ---- DRAW MAP -------------------------------------------- */
+const MAP_LABELS = [
+  ["NORTH AMERICA", 45, -100], ["SOUTH AMERICA", -15, -60],
+  ["EUROPE", 50, 15], ["ASIA", 42, 90],
+  ["AFRICA", 5, 20], ["AUSTRALIA", -25, 135],
+];
+
+/* ---- "Earth at night" texture -----------------------------
+   Procedural city-light speckle, not a downloaded image (this
+   lab is offline -- a fetched basemap would just 404 at deploy
+   time). Real photos of Earth at night aren't uniform speckle --
+   light clusters around a handful of metro "hubs" per landmass,
+   with sparse glow between them, and the lights themselves
+   flicker faintly like a real distant skyline. Positions (and
+   their hub pull) are computed once per resize; brightness is
+   animated fresh each frame.
+   ----------------------------------------------------------- */
+let cityLights = [];
+
+function pointInPolyXY(x, y, pts) {
+  let inside = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i], b = pts[j];
+    if (((a.y > y) !== (b.y > y)) &&
+        (x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x)) inside = !inside;
+  }
+  return inside;
+}
+
+function buildMapTexture() {
+  if (!W || !H) return;
+  cityLights = [];
+  for (const poly of WORLD_POLYS) {
+    const projected = poly.pts.map(([lat,lon]) => project(lat,lon,W,H));
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+    for (const p of projected) { if(p.x<minX)minX=p.x; if(p.x>maxX)maxX=p.x; if(p.y<minY)minY=p.y; if(p.y>maxY)maxY=p.y; }
+    const area = Math.max(0, (maxX-minX)) * Math.max(0, (maxY-minY));
+    if (area < 40) continue;
+
+    // A handful of "metro hubs" per landmass -- lights cluster
+    // around these instead of scattering uniformly.
+    const hubCount = Math.min(5, Math.max(1, Math.floor(area/9000)));
+    const hubs = [];
+    let hubTries = 0;
+    while (hubs.length < hubCount && hubTries < hubCount*20) {
+      hubTries++;
+      const hx = minX + Math.random()*(maxX-minX);
+      const hy = minY + Math.random()*(maxY-minY);
+      if (pointInPolyXY(hx,hy,projected)) hubs.push({x:hx,y:hy});
+    }
+    if (!hubs.length) continue;
+
+    const target = Math.min(220, Math.max(14, Math.floor(area/420)));
+    let placed = 0, tries = 0;
+    while (placed < target && tries < target*10) {
+      tries++;
+      const hub = hubs[Math.floor(Math.random()*hubs.length)];
+      const spread = 14 + Math.random()*34;
+      const angle = Math.random()*Math.PI*2;
+      const x = hub.x + Math.cos(angle)*spread*Math.random();
+      const y = hub.y + Math.sin(angle)*spread*Math.random();
+      if (!pointInPolyXY(x,y,projected)) continue;
+      placed++;
+      cityLights.push({
+        x, y,
+        r: Math.random()*0.8+0.3,
+        base: 0.14 + Math.random()*0.22,
+        amp: 0.08 + Math.random()*0.14,
+        phase: Math.random()*Math.PI*2,
+        speed: 1.4 + Math.random()*1.8,
+      });
+    }
+  }
+}
+
+function drawCityLights(now) {
+  const t = now / 1000;
+  for (const l of cityLights) {
+    const flicker = l.base + l.amp * (0.5 + 0.5*Math.sin(t*l.speed + l.phase));
+    ctx.beginPath();
+    ctx.arc(l.x, l.y, l.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(160,255,180,${flicker.toFixed(3)})`;
+    ctx.fill();
+  }
+}
+
 function drawMap() {
-  // Black ocean
+  const now = Date.now();
+  // Black ocean -- unchanged, this was never the complaint.
   ctx.fillStyle = "#000";
   ctx.fillRect(0,0,W,H);
 
-  // Continent fills (dark green, very dark)
+  // Faint lat/long graticule, ocean only -- drawn before the
+  // continent fill so land paints over it and it never competes
+  // with the city-light texture.
+  ctx.strokeStyle = "#00ff410d";
+  ctx.lineWidth = 0.5;
+  for (let lon=-180; lon<=180; lon+=30) {
+    const p1 = project(84,lon,W,H), p2 = project(-84,lon,W,H);
+    ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+  }
+  for (let lat=-60; lat<=80; lat+=30) {
+    const p1 = project(lat,-180,W,H), p2 = project(lat,180,W,H);
+    ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+  }
+
+  // Continent fill -- the original near-black green, kept as-is.
   ctx.fillStyle = "#010e01";
   for (const poly of WORLD_POLYS) {
     ctx.beginPath();
@@ -201,6 +302,9 @@ function drawMap() {
     ctx.closePath();
     ctx.fill();
   }
+
+  // Real surface detail: clustered, flickering city-light texture.
+  drawCityLights(now);
 
   // Borders
   ctx.strokeStyle = "#00880e";
@@ -218,6 +322,15 @@ function drawMap() {
     ctx.stroke();
   }
   ctx.shadowBlur = 0;
+
+  // Region labels -- static, not hover-only.
+  ctx.font = "9px 'Share Tech Mono', monospace";
+  ctx.fillStyle = "#1f6b2f";
+  ctx.textAlign = "center";
+  for (const [name, lat, lon] of MAP_LABELS) {
+    const {x,y} = project(lat,lon,W,H);
+    ctx.fillText(name, x, y);
+  }
 }
 
 /* ---- BOT GLOW SPRITE --------------------------------------
@@ -254,7 +367,8 @@ function drawNodes() {
   // re-drawing the same first-N bots -- the map should reflect scale.
   const step       = Math.max(1, Math.ceil(allBots.length / BOT_CAP));
   const sampleBots = allBots.length > BOT_CAP ? allBots.filter((_,i) => i % step === 0) : allBots;
-  const visibleNodes = LAB_NODES.length > 80 ? [...LAB_NODES.filter(n=>n.type!=="bot"), ...sampleBots] : LAB_NODES;
+  let visibleNodes = LAB_NODES.length > 80 ? [...LAB_NODES.filter(n=>n.type!=="bot"), ...sampleBots] : LAB_NODES;
+  if (hideLoaderNode) visibleNodes = visibleNodes.filter(n => n.id !== "ldr");
 
   // Pass 1: additive glow for every bot -- dense clusters bloom brighter on their own
   ctx.globalCompositeOperation = "lighter";
@@ -352,7 +466,10 @@ function drawArcs() {
     }
     const age = (now - arc.startTime)/1000;
     if (age > arc.duration) {
-      impacts.push({ x:arc.tx, y:arc.ty, time:now, color: METHOD_COLOR[arc.method] || METHOD_COLOR.default, big:true });
+      // Small hit mark per landed beam -- NOT "big" (that shockwave
+      // is reserved for the one-off launch moment; every bot landing
+      // getting a 70px ring stacked into a mess during sustained fire).
+      impacts.push({ x:arc.tx, y:arc.ty, time:now, color: METHOD_COLOR[arc.method] || METHOD_COLOR.default });
       continue;
     }
     live.push(arc);
@@ -369,25 +486,49 @@ function drawArcs() {
     const color = METHOD_COLOR[arc.method] || METHOD_COLOR.default;
 
     ctx.save();
-    // Soft outer glow
-    ctx.strokeStyle = color + "40";
+    // Soft outer glow -- barely-there, just a halo
+    ctx.strokeStyle = color + "22";
     ctx.lineWidth   = 4;
     ctx.lineCap     = "round";
     ctx.beginPath(); ctx.moveTo(fx,fy);
     ctx.quadraticCurveTo(mx,my,ex,ey);
     ctx.stroke();
-    // Bright core, fading in from the tail
-    const grad = ctx.createLinearGradient(fx,fy,ex,ey);
-    grad.addColorStop(0, color+"00");
-    grad.addColorStop(.7, color+"cc");
-    grad.addColorStop(1, color+"ff");
-    ctx.strokeStyle = grad;
-    ctx.lineWidth   = 1.6;
-    ctx.shadowColor = color;
-    ctx.shadowBlur  = 8;
+
+    // Flowing dash stream along the (static, non-jittering) curve --
+    // only the dash offset animates, so it reads as current flowing
+    // through a fixed wire, not a shaking line.
+    ctx.strokeStyle = color + "55";
+    ctx.lineWidth   = 1.3;
+    ctx.setLineDash([2,10]);
+    ctx.lineDashOffset = -(now/14) % 12;
     ctx.beginPath(); ctx.moveTo(fx,fy);
     ctx.quadraticCurveTo(mx,my,ex,ey);
     ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Dim core along almost the whole length -- the tail should
+    // read as faint, not opaque, so it doesn't look like a solid bar.
+    const grad = ctx.createLinearGradient(fx,fy,ex,ey);
+    grad.addColorStop(0,   color+"00");
+    grad.addColorStop(.55, color+"18");
+    grad.addColorStop(.92, color+"55");
+    grad.addColorStop(1,   color+"ff");
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 1.3;
+    ctx.beginPath(); ctx.moveTo(fx,fy);
+    ctx.quadraticCurveTo(mx,my,ex,ey);
+    ctx.stroke();
+
+    // Short hot segment right behind the head only -- this is the
+    // only part of the beam that should look "solid".
+    const tailStart = Math.max(0, prog - 0.1);
+    const sx = bezierPt(fx,mx,tx,tailStart), sy = bezierPt(fy,my,ty,tailStart);
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.lineCap     = "round";
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 9;
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
     ctx.shadowBlur  = 0;
 
     // One trailing tracer, dim
@@ -424,24 +565,17 @@ function drawArcs() {
 function drawImpacts(now) {
   const live = [];
   for (const im of impacts) {
-    const span = im.big ? 0.9 : 0.55;
+    const span = im.big ? 0.7 : 0.4;
     const age = (now - im.time)/1000;
     if (age > span) continue;
     live.push(im);
     const p = age/span;
-    const maxR = im.big ? 70 : 26;
+    const maxR = im.big ? 34 : 14;
     ctx.beginPath();
-    ctx.arc(im.x, im.y, 5 + p*maxR, 0, Math.PI*2);
-    ctx.strokeStyle = im.color + Math.floor((1-p)*220).toString(16).padStart(2,"0");
-    ctx.lineWidth = im.big ? 3 : 2.2;
+    ctx.arc(im.x, im.y, 3 + p*maxR, 0, Math.PI*2);
+    ctx.strokeStyle = im.color + Math.floor((1-p)*200).toString(16).padStart(2,"0");
+    ctx.lineWidth = im.big ? 2.2 : 1.6;
     ctx.stroke();
-    if (im.big) {
-      ctx.beginPath();
-      ctx.arc(im.x, im.y, 5 + p*maxR*0.6, 0, Math.PI*2);
-      ctx.strokeStyle = im.color + Math.floor((1-p)*140).toString(16).padStart(2,"0");
-      ctx.lineWidth = 1.4;
-      ctx.stroke();
-    }
   }
   impacts = live;
 }
@@ -452,8 +586,33 @@ function drawFrame() {
   drawMap();      // map only, no rain
   drawArcs();     // attack lines
   drawNodes();    // bots + victims + c2/loader
+  drawLockLine(); // dashed link from the open HUD panel to its target
   // NO drawLabels() — labels only via hover tooltip
   requestAnimationFrame(drawFrame);
+}
+
+/* ---- Lock-on line: ties the floating targeting HUD to the
+   actual node on the map it's pointed at, instead of floating
+   disconnected from the thing it describes. ---- */
+function drawLockLine() {
+  if (!hudTarget || hud.hidden) return;
+  const { x:tx, y:ty } = project(hudTarget.lat, hudTarget.lon, W, H);
+  const hudBox = hud.getBoundingClientRect();
+  const mapBox = canvas.getBoundingClientRect();
+  const ax = (hudBox.left + hudBox.right)/2 - mapBox.left;
+  const ay = (hudBox.top + hudBox.bottom)/2 - mapBox.top;
+
+  ctx.save();
+  ctx.setLineDash([4,4]);
+  ctx.lineDashOffset = -(Date.now()/40) % 8;
+  ctx.strokeStyle = "#ff222270";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(tx,ty); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath(); ctx.arc(tx,ty,11,0,Math.PI*2);
+  ctx.strokeStyle = "#ff2222a0"; ctx.lineWidth = 1.3; ctx.stroke();
+  ctx.restore();
 }
 
 /* ---- TOOLTIP (only info display on map) ------------------ */
@@ -791,6 +950,19 @@ function updateVitals(botTotal){
   if (fillEl){ fillEl.style.width = pct+"%"; fillEl.className = "vitals-fill"+(level==="low"?"":" t-"+level); }
 }
 
+/* ---- Flash a sidebar value when it actually changes -------- */
+function setFlashText(id, value){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const next = String(value);
+  if (el.textContent !== next) {
+    el.textContent = next;
+    el.classList.remove("flash");
+    void el.offsetWidth; // restart animation
+    el.classList.add("flash");
+  }
+}
+
 /* ---- TOAST ----------------------------------------------- */
 function toast(msg, err=false){
   const el=document.createElement("div");
@@ -901,10 +1073,8 @@ function applyStatus(data){
 
   const ledCnc=document.getElementById("led-cnc");
   if(ledCnc) ledCnc.className="led"+(cncUp?" on":"");
-  const sbCnc=document.getElementById("sb-cnc-text");
-  if(sbCnc) sbCnc.textContent=cncUp?"UP":"DOWN";
-  const sbBot=document.getElementById("sb-bot-text");
-  if(sbBot) sbBot.textContent=bots;
+  setFlashText("sb-cnc-text", cncUp?"UP":"DOWN");
+  setFlashText("sb-bot-text", bots);
   const ledBots=document.getElementById("led-bots");
   if(ledBots) ledBots.className="led"+(bots>0?" on":"");
   const sbPoll=document.getElementById("sb-last-poll");
@@ -950,12 +1120,10 @@ async function pollOverview(){
     const httpOk=d.loader?.http?.running;
     const la=document.getElementById("led-agent");
     if(la) la.className="led led-yellow"+(agentOk?" on":"");
-    const sa=document.getElementById("sb-agent-text");
-    if(sa) sa.textContent=agentOk?"UP":"DOWN";
+    setFlashText("sb-agent-text", agentOk?"UP":"DOWN");
     const lh=document.getElementById("led-http");
     if(lh) lh.className="led led-blue"+(httpOk?" on":"");
-    const sh=document.getElementById("sb-http-text");
-    if(sh) sh.textContent=httpOk?"UP":"DOWN";
+    setFlashText("sb-http-text", httpOk?"UP":"DOWN");
   }catch{}
 }
 
@@ -1054,10 +1222,15 @@ document.getElementById("btn-toggle-console")?.addEventListener("click",(e)=>{to
 document.getElementById("btn-toggle-loader")?.addEventListener("click",(e)=>{
   const hidden = document.body.classList.toggle("loader-hidden");
   e.currentTarget.classList.toggle("active", hidden);
-  e.currentTarget.textContent = hidden ? "[SHOW LOADER]" : "[HIDE LOADER]";
+  e.currentTarget.textContent = hidden ? "[SHOW LDR.TAB]" : "[HIDE LDR.TAB]";
   if (hidden && document.querySelector('.tab[data-tab="loader"]')?.classList.contains("active")) {
     document.querySelector('.tab[data-tab="attack"]')?.click();
   }
+});
+document.getElementById("btn-toggle-loader-node")?.addEventListener("click",(e)=>{
+  hideLoaderNode = !hideLoaderNode;
+  e.currentTarget.classList.toggle("active", hideLoaderNode);
+  e.currentTarget.textContent = hideLoaderNode ? "[SHOW LDR.DOT]" : "[HIDE LDR.DOT]";
 });
 document.getElementById("btn-focus-map")?.addEventListener("click",(e)=>{document.body.classList.toggle("focus-map");e.currentTarget.classList.toggle("active",document.body.classList.contains("focus-map"));resize();});
 
@@ -1100,8 +1273,9 @@ if(ldrForm) ldrForm.addEventListener("submit",async e=>{
 });
 
 /* ---- INIT ------------------------------------------------ */
-window.addEventListener("resize",resize);
+window.addEventListener("resize",()=>{resize();buildMapTexture();});
 resize();
+buildMapTexture();
 buildNodeList();
 drawFrame();
 pollStatus(); pollLogs(); pollOverview();
