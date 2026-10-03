@@ -41,11 +41,13 @@ function render(node) {
   const pub = sample.public, mgmt = sample.management, telemetry = sample.telemetry || {};
   const pubLabel = stateLabel(pub.state), mgmtLabel = stateLabel(mgmt.state);
   text("summary", pub.state === "online" ? "Public transactions are completing. The separate management path is collecting independent evidence." : "Public users are affected. The out-of-band workspace continues to collect telemetry on its separate management route.");
-  const publicBox = $("publicVerdict"), managementBox = $("managementVerdict"), stage = $("routeStage");
-  publicBox.className = `path-verdict public ${pub.state}`; managementBox.className = `path-verdict management ${mgmt.state}`; stage.className = `route-stage public-${pub.state} oob-${mgmt.state}`;
+  const publicBox = $("publicVerdict"), managementBox = $("managementVerdict");
+  document.body.dataset.publicState = pub.state; document.body.dataset.managementState = mgmt.state;
+  publicBox.className = `path-verdict public ${pub.state}`; managementBox.className = `path-verdict management ${mgmt.state}`;
   text("publicStatus", pubLabel); text("publicDetail", pub.state === "online" ? `External transaction completed in ${pub.latency_ms} ms.` : pub.message || "External transaction did not complete.");
   text("managementStatus", mgmtLabel); text("managementDetail", mgmt.state === "online" ? `Telemetry agent answered in ${mgmt.latency_ms} ms.` : "The management route has no current reply.");
   text("publicRouteReadout", pubLabel); text("oobRouteReadout", mgmtLabel); text("freshness", `LAST SAMPLE ${fullTime(sample.timestamp)}`);
+  text("alertEyebrow", pub.state === "unreachable" ? "PUBLIC SERVICE FAILURE / EXTERNAL OBSERVER" : "PUBLIC ROUTE STATUS / EXTERNAL OBSERVER"); text("alertHeadline", pub.state === "unreachable" ? "Public service is unavailable" : `Public service is ${pubLabel.toLowerCase()}`); text("alertDetail", pub.state === "unreachable" ? "Customer actions cannot complete. Continue diagnosis from the out-of-band workspace." : "External transactions are being measured from the public route."); text("alertProof", `MANAGEMENT ${mgmtLabel}`); text("impactConclusion", pub.state === "unreachable" && mgmt.state === "online" ? "The incident affects the public route. Management telemetry remains independently reachable for investigation." : "Both paths are being assessed independently before a conclusion is made.");
   text("latestStatus", pub.status ? `${pub.status} · ${pubLabel}` : pubLabel); text("latestLatency", pub.latency_ms ? `${pub.latency_ms} ms` : "TIMEOUT");
   const history = node.history || []; text("probeRate", `${history.filter((entry) => entry.public.state === "online").length} / ${history.length}`);
   const t = telemetry.telemetry || {}, app = telemetry.app || {}, system = telemetry.system || {};

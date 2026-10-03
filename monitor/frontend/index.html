@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#07090d">
   <title>Signal Blacksite | Incident Command</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="incident.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to incident command</a>
@@ -20,6 +21,7 @@
   </header>
 
   <main id="main">
+    <section class="incident-alert" id="incidentAlert" aria-live="polite"><div class="alert-code">P1</div><div><p id="alertEyebrow">PUBLIC ROUTE INCIDENT</p><h2 id="alertHeadline">External service is unavailable</h2><span id="alertDetail">The observer cannot complete a public transaction.</span></div><div class="alert-proof"><span>OOB PROOF</span><strong id="alertProof">MANAGEMENT ONLINE</strong></div></section>
     <section class="masthead" aria-labelledby="title">
       <div class="mast-copy">
         <p class="kicker">OUT-OF-BAND INCIDENT COMMAND</p>
@@ -46,24 +48,7 @@
     </section>
 
     <section class="command-grid" aria-label="Incident evidence">
-      <article class="topology-pane pane">
-        <div class="pane-heading"><div><p class="kicker">ROUTE SEPARATION</p><h2>Two paths. One verdict.</h2></div><span id="freshness" class="freshness">No sample</span></div>
-        <div class="route-stage" id="routeStage">
-          <svg viewBox="0 0 840 340" role="img" aria-label="Public and management route topology">
-            <defs><filter id="lineGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-            <path class="route public-route" d="M92 105 H330 C390 105 405 170 470 170 H740" />
-            <path class="route oob-route" d="M92 250 H330 C390 250 405 170 470 170 H740" />
-            <circle class="route-dot public-dot" cx="92" cy="105" r="8"/><circle class="route-dot public-dot" cx="740" cy="170" r="8"/>
-            <circle class="route-dot oob-dot" cx="92" cy="250" r="8"/><circle class="route-dot oob-dot" cx="740" cy="170" r="8"/>
-            <circle class="core" cx="470" cy="170" r="32"/>
-            <path class="pulse-run public-run" d="M92 105 H330 C390 105 405 170 470 170 H740"/>
-            <path class="pulse-run oob-run" d="M92 250 H330 C390 250 405 170 470 170 H740"/>
-          </svg>
-          <div class="route-label ext-label"><b>EXTERNAL</b><span>probe VLAN</span></div><div class="route-label oob-label"><b>SOC MONITOR</b><span>mgmt VLAN</span></div><div class="route-label app-label"><b>VICTIM SERVICE</b><span>eth0 / eth1</span></div>
-          <div class="route-readout public-readout"><span>PUBLIC</span><b id="publicRouteReadout">CHECKING</b></div><div class="route-readout oob-readout"><span>OOB</span><b id="oobRouteReadout">CHECKING</b></div>
-        </div>
-        <p class="route-note">The red path is tested from a public VLAN. The green path is collected from a separate management VLAN.</p>
-      </article>
+      <article class="topology-pane pane"><div class="pane-heading"><div><p class="kicker">INCIDENT DECISION</p><h2>Public failure, OOB evidence intact.</h2></div><span id="freshness" class="freshness">No sample</span></div><div class="impact-board"><div class="impact-cell public-impact"><span>PUBLIC TRANSACTION</span><strong id="publicRouteReadout">CHECKING</strong><small>External monitor → public VLAN → application</small></div><div class="impact-cell oob-impact"><span>MANAGEMENT EVIDENCE</span><strong id="oobRouteReadout">CHECKING</strong><small>SOC monitor → management VLAN → telemetry agent</small></div><div class="impact-conclusion"><span>OPERATOR CONCLUSION</span><p id="impactConclusion">Collecting an independent sample from both routes.</p></div></div></article>
 
       <article class="spectrum-pane pane">
         <div class="pane-heading"><div><p class="kicker">TRANSACTION SPECTRUM</p><h2>Public path under observation</h2></div><span id="probeRate" class="counter">0 / 0</span></div>
