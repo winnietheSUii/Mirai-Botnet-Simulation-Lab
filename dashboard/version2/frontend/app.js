@@ -33,15 +33,9 @@ const VICTIM_MAP = {};
 STATIC_NODES.filter(n => n.type === "victim").forEach(v => { VICTIM_MAP[v.victimKey] = v; });
 
 const ALL_BOTS = [];
-const REGIONS = [
-  { lat:[30,48], lon:[-120,-70], c:"USA" },
-  { lat:[40,60], lon:[10,40], c:"Europe" },
-  { lat:[20,40], lon:[100,120], c:"Asia" },
-  { lat:[-30,-10], lon:[-60,-40], c:"South America" },
-  { lat:[10,20], lon:[90,110], c:"SE Asia" }
-];
+const REGIONS = [{lat:39,lon:-98,c:"USA"},{lat:23,lon:-102,c:"Mexico"},{lat:-14,lon:-52,c:"Brazil"},{lat:-35,lon:-64,c:"Argentina"},{lat:51,lon:10,c:"Germany"},{lat:46,lon:2,c:"France"},{lat:40,lon:-4,c:"Spain"},{lat:55,lon:-3,c:"United Kingdom"},{lat:52,lon:19,c:"Poland"},{lat:41,lon:12,c:"Italy"},{lat:55,lon:37,c:"Russia"},{lat:31,lon:35,c:"Middle East"},{lat:21,lon:78,c:"India"},{lat:35,lon:104,c:"China"},{lat:36,lon:138,c:"Japan"},{lat:36,lon:128,c:"South Korea"},{lat:15,lon:101,c:"Thailand"},{lat:-2,lon:118,c:"Indonesia"},{lat:-25,lon:134,c:"Australia"},{lat:7,lon:21,c:"Central Africa"}];
 for(let i=1; i<=2000; i++){
-  const r = REGIONS[i % REGIONS.length];
+  const r = REGIONS[(i * 7) % REGIONS.length];
   const s = Math.sin(i) * 10000;
   const rand1 = s - Math.floor(s);
   const s2 = Math.cos(i) * 10000;
@@ -49,8 +43,8 @@ for(let i=1; i<=2000; i++){
   ALL_BOTS.push({
     id:"bot"+i, type:"bot", label:"BOT-"+i,
     ip: "10." + Math.floor(rand1*255) + "." + Math.floor(rand2*255) + "." + (i%255),
-    lat: r.lat[0] + rand1*(r.lat[1]-r.lat[0]),
-    lon: r.lon[0] + rand2*(r.lon[1]-r.lon[0]),
+    lat: r.lat + (rand1-.5)*2.4,
+    lon: r.lon + (rand2-.5)*3.2,
     country: r.c
   });
 }
@@ -230,7 +224,8 @@ function drawNodes() {
   projNodes = [];
   const now = Date.now();
 
-  for (const node of LAB_NODES) {
+  const visibleNodes = LAB_NODES.length > 80 ? [...LAB_NODES.filter(n=>n.type!=="bot"), ...LAB_NODES.filter(n=>n.type==="bot").slice(0,60)] : LAB_NODES;
+  for (const node of visibleNodes) {
     const {x,y} = project(node.lat, node.lon, W, H);
     const s = NODE_STYLE[node.type];
 
@@ -674,6 +669,10 @@ const b_hd=document.getElementById("btn-http-stop");
 if(b_hd) b_hd.addEventListener("click",async()=>{ const d=await labPost("/api/lab/http/stop"); toast(d.ok?"HTTP.DOWN":"ERR: "+d.error,!d.ok); pollOverview(); });
 const b_ref=document.getElementById("btn-refresh");
 if(b_ref) b_ref.addEventListener("click",()=>{ pollStatus();pollLogs();pollOverview();toast(">> SYNC..."); });
+const toggleView=(name)=>document.body.classList.toggle(name);
+document.getElementById("btn-toggle-sidebar")?.addEventListener("click",()=>toggleView("sidebar-hidden"));
+document.getElementById("btn-toggle-console")?.addEventListener("click",()=>toggleView("console-hidden"));
+document.getElementById("btn-focus-map")?.addEventListener("click",()=>{document.body.classList.toggle("focus-map");resize();});
 
 /* ---- LOADER FORM ----------------------------------------- */
 const ldrForm=document.getElementById("loader-form");
