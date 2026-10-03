@@ -542,37 +542,98 @@ function fireArcs(victimKey, duration, method) {
   }
 }
 
-/* ---- NODE LIST SIDEBAR ----------------------------------- */
+/* ---- NODE LIST SIDEBAR ------------------------------------
+   1200+ bots as a flat scroll is unreadable and boring. Group
+   bots by country into collapsible rows; attacker/victim nodes
+   stay individual (few, important). Filter box narrows both.
+   ----------------------------------------------------------- */
+let nodeFilterText = "";
+
+function flashNode(node) {
+  const {x,y} = project(node.lat, node.lon, W, H);
+  let n = 0;
+  const id = setInterval(() => {
+    if (n++ > 6) { clearInterval(id); return; }
+    ctx.beginPath();
+    ctx.arc(x, y, 10+n*5, 0, Math.PI*2);
+    ctx.strokeStyle = NODE_STYLE[node.type].fill + "50";
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }, 60);
+}
+
+function makeNodeRow(node, sub) {
+  const div = document.createElement("div");
+  div.className = "nl-item" + (sub ? " nl-item-sub" : "");
+  div.title = node.ip + " -- " + node.country;
+  div.innerHTML =
+    "<span class='nl-dot dot-"+node.type+"'></span>"+
+    "<span class='nl-name'>"+node.label+"</span>"+
+    "<span class='nl-ip'>"+node.ip+"</span>";
+  div.addEventListener("click", () => flashNode(node));
+  return div;
+}
+
 function buildNodeList() {
   const list = document.getElementById("node-list");
   if (!list) return;
-  list.innerHTML = "";
   const count = document.getElementById("sb-node-count");
   if (count) count.textContent = LAB_NODES.length;
 
+  const q = nodeFilterText.trim().toLowerCase();
+  const matches = (n) => !q || n.ip.toLowerCase().includes(q) || n.country.toLowerCase().includes(q) || n.label.toLowerCase().includes(q);
+
+  list.innerHTML = "";
+
+  // Attacker / victim nodes: always shown individually, they're few and critical
   for (const node of LAB_NODES) {
-    const div = document.createElement("div");
-    div.className = "nl-item";
-    div.title = node.ip + " -- " + node.country;
-    div.innerHTML =
-      "<span class='nl-dot dot-"+node.type+"'></span>"+
-      "<span class='nl-name'>"+node.label+"</span>"+
-      "<span class='nl-ip'>"+node.ip+"</span>";
-    div.addEventListener("click", () => {
-      // Flash ring at this node's map position
-      const {x,y} = project(node.lat, node.lon, W, H);
-      let n=0;
-      const id=setInterval(()=>{
-        if(n++>6){clearInterval(id);return;}
-        ctx.beginPath();
-        ctx.arc(x,y,10+n*5,0,Math.PI*2);
-        ctx.strokeStyle=NODE_STYLE[node.type].fill+"50";
-        ctx.lineWidth=1.5; ctx.stroke();
-      },60);
+    if (node.type === "bot") continue;
+    if (!matches(node)) continue;
+    list.appendChild(makeNodeRow(node));
+  }
+
+  // Bots grouped by country -- collapsed by default, auto-expand on search match
+  const groups = new Map();
+  for (const b of LAB_NODES) {
+    if (b.type !== "bot") continue;
+    if (!groups.has(b.country)) groups.set(b.country, []);
+    groups.get(b.country).push(b);
+  }
+  const countries = [...groups.keys()].sort((a,b) => groups.get(b).length - groups.get(a).length);
+
+  for (const country of countries) {
+    const members = groups.get(country);
+    const shown = q ? members.filter(matches) : members;
+    if (q && !shown.length && !country.toLowerCase().includes(q)) continue;
+    const rows = q ? (shown.length ? shown : members) : members;
+    const open = !!q;
+
+    const wrap = document.createElement("div");
+    wrap.className = "nl-group" + (open ? " open" : "");
+    wrap.innerHTML =
+      "<button class='nl-group-head' type='button'>"+
+        "<span class='nl-chevron'>"+(open?"&#9662;":"&#9656;")+"</span>"+
+        "<span class='nl-dot dot-bot'></span>"+
+        "<span class='nl-group-name'>"+country+"</span>"+
+        "<span class='nl-group-count'>"+members.length+"</span>"+
+      "</button>"+
+      "<div class='nl-group-body"+(open?"":" hidden")+"'></div>";
+
+    const body = wrap.querySelector(".nl-group-body");
+    rows.slice(0, 600).forEach(b => body.appendChild(makeNodeRow(b, true)));
+
+    wrap.querySelector(".nl-group-head").addEventListener("click", () => {
+      const isOpen = wrap.classList.toggle("open");
+      body.classList.toggle("hidden", !isOpen);
+      wrap.querySelector(".nl-chevron").innerHTML = isOpen ? "&#9662;" : "&#9656;";
     });
-    list.appendChild(div);
+    list.appendChild(wrap);
   }
 }
+
+document.getElementById("nodeFilter")?.addEventListener("input", (e) => {
+  nodeFilterText = e.target.value;
+  buildNodeList();
+});
 
 /* ---- TABS ------------------------------------------------ */
 document.querySelectorAll(".tab").forEach(btn=>{
