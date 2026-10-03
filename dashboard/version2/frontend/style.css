@@ -270,9 +270,39 @@ body::after{
 .bottom-bar{
   height:272px;background:var(--panel-bg);
   border-top:2px solid var(--green);
-  display:flex;flex-direction:column;flex-shrink:0;
+  display:flex;flex-direction:row;flex-shrink:0;
   box-shadow:0 -2px 8px #00ff4120;
 }
+.console-main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+
+/* === SYS.VITALS (always-visible rail beside the console tabs) === */
+.console-vitals{
+  width:180px;flex-shrink:0;background:#000;
+  border-left:1px solid var(--green-dim);
+  padding:10px 12px;display:flex;flex-direction:column;gap:9px;
+  box-shadow:inset 6px 0 14px -10px #00ff4140;
+}
+.vitals-head{
+  color:var(--green-dim);font-size:11px;letter-spacing:2px;
+  border-bottom:1px dashed var(--border);padding-bottom:4px;
+  text-transform:uppercase;position:relative;overflow:hidden;
+}
+.vitals-head:after{
+  content:"";position:absolute;bottom:0;left:-40%;width:40%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--green),transparent);
+  animation:sbScan 3.2s linear infinite;
+}
+.vitals-spark{width:100%;height:46px;background:#040a04;border:1px solid var(--border)}
+.vitals-row{display:flex;justify-content:space-between;align-items:baseline;font-size:11px}
+.vitals-row span{color:var(--green-dim);letter-spacing:.5px}
+.vitals-row strong{color:var(--green);font-size:13px;letter-spacing:1px;text-shadow:var(--glow-dim);font-variant-numeric:tabular-nums}
+#vitalsThreat.t-med{color:var(--yellow);text-shadow:0 0 4px #ffe03380}
+#vitalsThreat.t-high{color:var(--red);text-shadow:var(--glow-red);animation:blink-red 1s infinite}
+.vitals-bar{height:5px;background:#001a08;border:1px solid var(--border);overflow:hidden}
+.vitals-fill{height:100%;width:0%;background:var(--green);box-shadow:0 0 6px var(--green);transition:width .4s ease,background .3s ease}
+.vitals-fill.t-med{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.vitals-fill.t-high{background:var(--red);box-shadow:0 0 6px var(--red)}
+.vitals-foot{color:var(--green-dk);font-size:10px;letter-spacing:1px;text-align:center;opacity:.8;animation:blink-slow 2.4s infinite}
 .tabs{display:flex;background:#000;border-bottom:1px solid var(--border)}
 .tab{
   background:transparent;border:none;border-right:1px solid var(--border);

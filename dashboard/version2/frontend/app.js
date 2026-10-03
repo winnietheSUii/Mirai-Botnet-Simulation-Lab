@@ -220,25 +220,64 @@ function drawMap() {
   ctx.shadowBlur = 0;
 }
 
+/* ---- BOT GLOW SPRITE --------------------------------------
+   Pre-rendered radial-gradient glow, drawn with additive
+   ("lighter") blending -- overlapping bots in the same hotspot
+   naturally brighten into a density glow instead of a flat
+   sprinkle of identical dots. Core marker on top is a small
+   constant-size SQUARE pixel (reads as "data point", not a
+   circle like the victim/attacker halos -- no visual confusion).
+   ----------------------------------------------------------- */
+let botSprite = null;
+(function buildBotSprite(){
+  const size = 20;
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const g = c.getContext("2d");
+  const grad = g.createRadialGradient(size/2,size/2,0, size/2,size/2,size/2);
+  grad.addColorStop(0,   "#00ff4155");
+  grad.addColorStop(.5,  "#00ff4122");
+  grad.addColorStop(1,   "#00ff4100");
+  g.fillStyle = grad;
+  g.beginPath(); g.arc(size/2,size/2,size/2,0,Math.PI*2); g.fill();
+  botSprite = c;
+})();
+
 /* ---- DRAW NODES ------------------------------------------ */
 function drawNodes() {
   projNodes = [];
   const now = Date.now();
 
-  const visibleNodes = LAB_NODES.length > 80 ? [...LAB_NODES.filter(n=>n.type!=="bot"), ...LAB_NODES.filter(n=>n.type==="bot").slice(0,60)] : LAB_NODES;
+  const allBots  = LAB_NODES.filter(n => n.type === "bot");
+  const BOT_CAP  = 220;
+  // Evenly-sampled spread across the full swarm instead of always
+  // re-drawing the same first-N bots -- the map should reflect scale.
+  const step       = Math.max(1, Math.ceil(allBots.length / BOT_CAP));
+  const sampleBots = allBots.length > BOT_CAP ? allBots.filter((_,i) => i % step === 0) : allBots;
+  const visibleNodes = LAB_NODES.length > 80 ? [...LAB_NODES.filter(n=>n.type!=="bot"), ...sampleBots] : LAB_NODES;
+
+  // Pass 1: additive glow for every bot -- dense clusters bloom brighter on their own
+  ctx.globalCompositeOperation = "lighter";
+  for (const node of visibleNodes) {
+    if (node.type !== "bot") continue;
+    const {x,y} = project(node.lat, node.lon, W, H);
+    ctx.drawImage(botSprite, x-10, y-10, 20, 20);
+  }
+  ctx.globalCompositeOperation = "source-over";
+
   for (const node of visibleNodes) {
     const {x,y} = project(node.lat, node.lon, W, H);
     const s = NODE_STYLE[node.type];
 
     if (node.type === "bot") {
-      /* ------ SMALL BOT DOT (tiny, clean, supports 2000+) ------ */
-      ctx.beginPath();
-      ctx.arc(x, y, s.r, 0, Math.PI*2);
-      ctx.fillStyle   = s.fill;
-      ctx.shadowColor = "#00ff41";
-      ctx.shadowBlur  = 3;
-      ctx.fill();
-      ctx.shadowBlur  = 0;
+      /* ------ PIXEL CORE: constant size, real peers brighter ------ */
+      const isReal = node.id.startsWith("bot_peer_");
+      const px = isReal ? 3.4 : 2.2;
+      ctx.fillStyle = isReal ? "#d8ffe2" : "#1fae4a";
+      ctx.globalAlpha = isReal ? .95 : .62;
+      ctx.fillRect(x-px/2, y-px/2, px, px);
+      ctx.globalAlpha = 1;
+
       // Hit area slightly larger than visual dot for hover
       projNodes.push({...node, px:x, py:y, hr:6});
 
@@ -492,6 +531,7 @@ document.getElementById("hudLaunch")?.addEventListener("click", async ()=>{
 
   const row = document.querySelector(`.atk-row[data-victim-key="${victim}"]`);
   if (row) row.classList.add("firing");
+  updateVitals(_lastBotTotal);
   const atkSt = document.getElementById("atk-status");
   if (atkSt) atkSt.textContent = "> HUD LAUNCH: "+method.toUpperCase()+" >> "+vnode.ip+" // "+dur+"s";
   closeHud();
@@ -510,6 +550,7 @@ document.getElementById("hudLaunch")?.addEventListener("click", async ()=>{
   setTimeout(()=>{
     if (row) row.classList.remove("firing");
     if (atkSt) atkSt.textContent = "> STANDBY...";
+    updateVitals(_lastBotTotal);
   }, dur*1000+500);
 });
 
@@ -652,6 +693,73 @@ function updateClock(){
 }
 setInterval(updateClock,1000); updateClock();
 
+/* ---- SYS.VITALS -------------------------------------------
+   Always-visible rail beside the console tabs. Every number here
+   is derived from real polled data (bot_total history, active
+   firing rows) -- no invented metrics.
+   ----------------------------------------------------------- */
+const BOOT_TIME   = Date.now();
+let botHistory    = [];
+let peakBots      = 0;
+
+function updateUptime(){
+  const el = document.getElementById("vitalsUptime");
+  if (!el) return;
+  const s = Math.floor((Date.now()-BOOT_TIME)/1000);
+  const hh = String(Math.floor(s/3600)).padStart(2,"0");
+  const mm = String(Math.floor((s%3600)/60)).padStart(2,"0");
+  const ss = String(s%60).padStart(2,"0");
+  el.textContent = `${hh}:${mm}:${ss}`;
+}
+setInterval(updateUptime,1000); updateUptime();
+
+function drawSparkline(history){
+  const cv = document.getElementById("vitals-spark");
+  if (!cv) return;
+  const g = cv.getContext("2d");
+  const w = cv.width, h = cv.height;
+  g.clearRect(0,0,w,h);
+  if (history.length < 2) return;
+  const max = Math.max(1, ...history);
+  g.beginPath();
+  history.forEach((v,i) => {
+    const x = (i/(history.length-1)) * w;
+    const y = h - (v/max) * (h-4) - 2;
+    i===0 ? g.moveTo(x,y) : g.lineTo(x,y);
+  });
+  g.strokeStyle = "#00ff41";
+  g.lineWidth = 1.4;
+  g.shadowColor = "#00ff41";
+  g.shadowBlur = 4;
+  g.stroke();
+  g.shadowBlur = 0;
+  const last = history[history.length-1];
+  const lx = w, ly = h - (last/max)*(h-4) - 2;
+  g.beginPath(); g.arc(lx-2,ly,2,0,Math.PI*2); g.fillStyle="#eaffea"; g.fill();
+}
+
+function updateVitals(botTotal){
+  botHistory.push(botTotal);
+  if (botHistory.length > 50) botHistory.shift();
+  peakBots = Math.max(peakBots, botTotal);
+  drawSparkline(botHistory);
+
+  const activeAtk = document.querySelectorAll(".atk-row.firing").length;
+  const peakEl = document.getElementById("vitalsPeak");
+  if (peakEl) peakEl.textContent = botTotal + " / " + peakBots;
+  const activeEl = document.getElementById("vitalsActive");
+  if (activeEl) activeEl.textContent = activeAtk;
+
+  const threatEl = document.getElementById("vitalsThreat");
+  const fillEl   = document.getElementById("vitalsFill");
+  let level = "low", pct = Math.min(100, botTotal/10);
+  if (botTotal >= 500) { level = "high"; pct = Math.min(100, 60+botTotal/30); }
+  else if (botTotal >= 50) { level = "med"; pct = Math.min(100, 30+botTotal/8); }
+  if (activeAtk > 0) { level = "high"; pct = 100; }
+  if (threatEl){ threatEl.textContent = level.toUpperCase(); threatEl.className = level==="low"?"":"t-"+level; }
+  if (fillEl){ fillEl.style.width = pct+"%"; fillEl.className = "vitals-fill"+(level==="low"?"":" t-"+level); }
+}
+
 /* ---- TOAST ----------------------------------------------- */
 function toast(msg, err=false){
   const el=document.createElement("div");
@@ -755,6 +863,7 @@ function applyStatus(data){
   const displayBots = peerIps.length || bots;
   const elCount=document.getElementById("hdr-bot-count");
   if(elCount) elCount.textContent=String(displayBots).padStart(3,"0");
+  updateVitals(displayBots);
 
   const chip=document.getElementById("hdr-cnc-status");
   if(chip){ chip.textContent=cncUp?"[CNC:UP]":"[CNC:DOWN]"; chip.className="hdr-chip "+(cncUp?"chip-up":"chip-down"); }
@@ -863,6 +972,7 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
 
     const row=btn.closest(".atk-row");
     if(row) row.classList.add("firing");
+    updateVitals(_lastBotTotal);
     const atkSt=document.getElementById("atk-status");
     if(atkSt) atkSt.textContent="> LAUNCHING: "+method.toUpperCase()+" >> "+vnode.ip+" // "+dur+"s";
 
@@ -884,6 +994,7 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
 
     setTimeout(()=>{
       if(row) row.classList.remove("firing");
+      updateVitals(_lastBotTotal);
       if(atkSt) atkSt.textContent="> STANDBY...";
     }, dur*1000+500);
   });

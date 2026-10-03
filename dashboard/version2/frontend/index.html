@@ -109,6 +109,7 @@
 
   <!-- BOTTOM BAR -->
   <div class="bottom-bar">
+   <div class="console-main">
     <div class="tabs">
       <button class="tab active" data-tab="attack">[ATTACK]</button>
       <button class="tab" data-tab="command">[CMD]</button>
@@ -216,6 +217,19 @@
         <span id="terminal-status">polling /api/status</span>
       </div>
     </div>
+   </div>
+
+   <!-- SYS.VITALS -- always visible regardless of active tab -->
+   <aside class="console-vitals">
+     <div class="vitals-head">&#62; SYS.VITALS</div>
+     <canvas id="vitals-spark" class="vitals-spark" width="150" height="46"></canvas>
+     <div class="vitals-row"><span>UPTIME</span><strong id="vitalsUptime">00:00:00</strong></div>
+     <div class="vitals-row"><span>BOTS/PEAK</span><strong id="vitalsPeak">0</strong></div>
+     <div class="vitals-row"><span>ACTIVE.ATK</span><strong id="vitalsActive">0</strong></div>
+     <div class="vitals-row"><span>THREAT</span><strong id="vitalsThreat">LOW</strong></div>
+     <div class="vitals-bar"><div class="vitals-fill" id="vitalsFill"></div></div>
+     <div class="vitals-foot" id="vitalsFoot">&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;</div>
+   </aside>
   </div>
 
   <div class="toasts" id="toasts"></div>
