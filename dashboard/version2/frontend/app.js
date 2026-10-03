@@ -346,47 +346,78 @@ function drawArcs() {
 
   for (const arc of arcs) {
     if (arc.startTime > now) { live.push(arc); continue; }
+    if (!arc._launched) {
+      arc._launched = true;
+      impacts.push({ x:arc.fx, y:arc.fy, time:now, color:"#00ff41" }); // launch flash at the bot
+    }
     const age = (now - arc.startTime)/1000;
     if (age > arc.duration) {
-      impacts.push({ x:arc.tx, y:arc.ty, time:now, color: METHOD_COLOR[arc.method] || METHOD_COLOR.default });
+      impacts.push({ x:arc.tx, y:arc.ty, time:now, color: METHOD_COLOR[arc.method] || METHOD_COLOR.default, big:true });
       continue;
     }
     live.push(arc);
 
     const {fx,fy,tx,ty} = arc;
+    const dist = Math.hypot(tx-fx,ty-fy);
+    // Fixed control point -- same curve every frame, so the beam
+    // reads as one smooth flight path, not a shaking line.
     const mx = (fx+tx)/2;
-    const my = (fy+ty)/2 - Math.hypot(tx-fx,ty-fy)*0.32;
+    const my = (fy+ty)/2 - dist*0.32;
     const prog = Math.min(age/arc.duration, 1);
     const ex = bezierPt(fx,mx,tx,prog);
     const ey = bezierPt(fy,my,ty,prog);
     const color = METHOD_COLOR[arc.method] || METHOD_COLOR.default;
 
     ctx.save();
+    // Soft outer glow
+    ctx.strokeStyle = color + "40";
+    ctx.lineWidth   = 4;
+    ctx.lineCap     = "round";
+    ctx.beginPath(); ctx.moveTo(fx,fy);
+    ctx.quadraticCurveTo(mx,my,ex,ey);
+    ctx.stroke();
+    // Bright core, fading in from the tail
     const grad = ctx.createLinearGradient(fx,fy,ex,ey);
     grad.addColorStop(0, color+"00");
-    grad.addColorStop(.65, color+"66");
+    grad.addColorStop(.7, color+"cc");
     grad.addColorStop(1, color+"ff");
     ctx.strokeStyle = grad;
-    ctx.lineWidth   = 1.8;
-    ctx.lineCap     = "round";
+    ctx.lineWidth   = 1.6;
     ctx.shadowColor = color;
-    ctx.shadowBlur  = 7;
+    ctx.shadowBlur  = 8;
     ctx.beginPath(); ctx.moveTo(fx,fy);
     ctx.quadraticCurveTo(mx,my,ex,ey);
     ctx.stroke();
     ctx.shadowBlur  = 0;
 
-    // bright comet head
+    // One trailing tracer, dim
+    const tp = prog - 0.22;
+    if (tp > 0) {
+      const px = bezierPt(fx,mx,tx,tp), py = bezierPt(fy,my,ty,tp);
+      ctx.beginPath(); ctx.arc(px,py, 1.2, 0, Math.PI*2);
+      ctx.fillStyle = color + "90";
+      ctx.fill();
+    }
+
+    // comet head
     ctx.beginPath(); ctx.arc(ex,ey,2.4,0,Math.PI*2);
     ctx.fillStyle   = "#fff8e8";
     ctx.shadowColor = color;
-    ctx.shadowBlur  = 9;
+    ctx.shadowBlur  = 10;
     ctx.fill();
     ctx.restore();
   }
 
   arcs = live;
   drawImpacts(now);
+
+  // Faint siege tint -- only noticeable once a real flood is running,
+  // never overpowers the map.
+  if (live.length > 14) {
+    const heat = Math.min(0.06, (live.length-14) * 0.0025);
+    ctx.fillStyle = `rgba(255,30,30,${heat})`;
+    ctx.fillRect(0,0,W,H);
+  }
 }
 
 /* ---- IMPACT BURSTS (ring pulse where arcs land) ----------- */
@@ -1020,6 +1051,14 @@ if(b_ref) b_ref.addEventListener("click",()=>{ pollStatus();pollLogs();pollOverv
 const toggleView=(name,btn)=>{document.body.classList.toggle(name);btn?.classList.toggle("active",document.body.classList.contains(name));};
 document.getElementById("btn-toggle-sidebar")?.addEventListener("click",(e)=>{toggleView("sidebar-hidden",e.currentTarget);resize();});
 document.getElementById("btn-toggle-console")?.addEventListener("click",(e)=>{toggleView("console-hidden",e.currentTarget);resize();});
+document.getElementById("btn-toggle-loader")?.addEventListener("click",(e)=>{
+  const hidden = document.body.classList.toggle("loader-hidden");
+  e.currentTarget.classList.toggle("active", hidden);
+  e.currentTarget.textContent = hidden ? "[SHOW LOADER]" : "[HIDE LOADER]";
+  if (hidden && document.querySelector('.tab[data-tab="loader"]')?.classList.contains("active")) {
+    document.querySelector('.tab[data-tab="attack"]')?.click();
+  }
+});
 document.getElementById("btn-focus-map")?.addEventListener("click",(e)=>{document.body.classList.toggle("focus-map");e.currentTarget.classList.toggle("active",document.body.classList.contains("focus-map"));resize();});
 
 /* ---- LOADER FORM ----------------------------------------- */
