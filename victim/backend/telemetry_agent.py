@@ -55,7 +55,12 @@ def snapshot() -> dict:
     temp = target.with_suffix(".tmp")
     temp.write_text(json.dumps({"state": state}), encoding="utf-8")
     temp.replace(target)
-    payload.update({"victim": COUNTRY, "app": read_app_stats(), "load_state": state})
+    payload.update({
+        "victim": COUNTRY,
+        "app": read_app_stats(),
+        "load_state": state,
+        "demo_mode": DEMO_MODE in {"normal", "degraded", "outage"},
+    })
     return payload
 
 
