@@ -69,12 +69,43 @@ function render(node) {
   chart(history);
 }
 
+function setActive(key) {
+  active = key;
+  document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item.dataset.victim === key));
+}
+
+const FLEET_PINS = { us: { pin: "pinUs", line: "lineUs" }, ir: { pin: "pinIr", line: "lineIr" } };
+
+function renderFleet(victims) {
+  Object.entries(victims).forEach(([key, node]) => {
+    const refs = FLEET_PINS[key];
+    if (!refs) return;
+    const sample = node.latest;
+    const pub = sample ? sample.public.state : "checking", mgmt = sample ? sample.management.state : "checking";
+    const pin = $(refs.pin);
+    pin.className = `fleet-pin ${pub}${key === active ? " active" : ""}`;
+    document.getElementById(refs.line).setAttribute("class", `fleet-link ${pub}`);
+    document.getElementById(`${refs.line}Glow`).setAttribute("class", `fleet-link-glow ${pub}`);
+    const chips = pin.querySelectorAll(".chip");
+    chips[0].textContent = `PUBLIC · ${stateLabel(pub)}`; chips[0].className = `chip ${pub}`;
+    chips[1].textContent = `OOB · ${stateLabel(mgmt)}`; chips[1].className = `chip ${mgmt}`;
+  });
+}
+
+Object.entries(FLEET_PINS).forEach(([key, refs]) => $(refs.pin).addEventListener("click", () => { setActive(key); refresh(); }));
+
 async function refresh() {
-  try { const response = await fetch("/api/overview", { cache: "no-store" }); if (!response.ok) throw new Error("observer unavailable"); const data = await response.json(); render(data.victims[active]); }
+  try {
+    const response = await fetch("/api/overview", { cache: "no-store" });
+    if (!response.ok) throw new Error("observer unavailable");
+    const data = await response.json();
+    renderFleet(data.victims);
+    render(data.victims[active]);
+  }
   catch { document.querySelector(".observer").classList.add("offline"); text("summary", "The local observer endpoint is unavailable. No conclusion should be drawn from stale data."); }
 }
 
-document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => { active = button.dataset.victim; document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === button)); refresh(); }));
+document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => { setActive(button.dataset.victim); refresh(); }));
 $("traceFilter").addEventListener("click", (event) => { publicOnly = !publicOnly; event.currentTarget.setAttribute("aria-pressed", String(publicOnly)); event.currentTarget.textContent = publicOnly ? "Public only" : "Public + OOB"; refresh(); });
 $("presentation").addEventListener("click", (event) => { const activeMode = document.body.classList.toggle("presentation-mode"); event.currentTarget.setAttribute("aria-pressed", String(activeMode)); event.currentTarget.textContent = activeMode ? "Exit focus" : "Focus display"; });
 setInterval(() => { $("clock").textContent = `${new Date().toISOString().slice(11, 19)} UTC`; }, 1000);

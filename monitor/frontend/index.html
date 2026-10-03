@@ -22,6 +22,35 @@
   </header>
 
   <main id="main">
+    <section class="fleet-topology" aria-label="All monitored nodes overview">
+      <div class="fleet-heading"><p class="kicker">FLEET OVERVIEW</p><h2>Every node, one glance</h2></div>
+      <div class="fleet-map">
+        <svg class="fleet-map-svg" viewBox="0 0 800 280" aria-hidden="true">
+          <defs>
+            <radialGradient id="fleetVignette" cx="50%" cy="46%" r="75%"><stop offset="0%" stop-color="#162330"></stop><stop offset="100%" stop-color="#05070a"></stop></radialGradient>
+            <filter id="fleetGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3.2"></feGaussianBlur></filter>
+          </defs>
+          <rect x="0" y="0" width="800" height="280" fill="url(#fleetVignette)"></rect>
+          <g class="fleet-rings" aria-hidden="true"><circle cx="400" cy="140" r="58"></circle><circle cx="400" cy="140" r="108"></circle><circle cx="400" cy="140" r="158"></circle></g>
+          <line id="lineUsGlow" class="fleet-link-glow checking" x1="400" y1="140" x2="160" y2="104"></line>
+          <line id="lineIrGlow" class="fleet-link-glow checking" x1="400" y1="140" x2="612" y2="186"></line>
+          <line id="lineUs" class="fleet-link checking" x1="400" y1="140" x2="160" y2="104"></line>
+          <line id="lineIr" class="fleet-link checking" x1="400" y1="140" x2="612" y2="186"></line>
+          <circle class="fleet-core-ping" cx="400" cy="140" r="7"></circle>
+          <circle class="fleet-core" cx="400" cy="140" r="6"></circle>
+        </svg>
+        <div class="fleet-soc-label" style="left:50%;top:50%">SOC CORE</div>
+        <button class="fleet-pin checking" id="pinUs" type="button" style="left:20%;top:37.15%">
+          <span class="pin-dot" aria-hidden="true"></span>
+          <span class="pin-card"><b>Northline Connectivity</b><small>12.1.2.100</small><span class="fleet-chips"><i class="chip">PUBLIC · —</i><i class="chip">OOB · —</i></span></span>
+        </button>
+        <button class="fleet-pin checking" id="pinIr" type="button" style="left:76.5%;top:66.4%">
+          <span class="pin-dot" aria-hidden="true"></span>
+          <span class="pin-card"><b>Pars Energy Bulletin</b><small>5.200.0.100</small><span class="fleet-chips"><i class="chip">PUBLIC · —</i><i class="chip">OOB · —</i></span></span>
+        </button>
+        <p class="fleet-caption">Illustrative path topology — not literal geography</p>
+      </div>
+    </section>
     <section class="incident-alert" id="incidentAlert" aria-live="polite"><div class="alert-code">P1</div><div><p id="alertEyebrow">PUBLIC ROUTE INCIDENT</p><h2 id="alertHeadline">External service is unavailable</h2><span id="alertDetail">The observer cannot complete a public transaction.</span></div><div class="alert-proof"><span>OOB PROOF</span><strong id="alertProof">MANAGEMENT ONLINE</strong></div></section>
     <section class="incident-brief" aria-label="Operator incident brief"><article><span>CUSTOMER IMPACT</span><strong id="customerImpact">Assessing</strong><p id="affectedActions">Waiting for public-route evidence.</p></article><article><span>OBSERVED FAILURE RATE</span><strong id="failureRate">—</strong><p id="sampleWindow">No sample window yet.</p></article><article><span>OPERATOR NEXT STEP</span><strong id="nextStep">Observe</strong><p id="nextStepDetail">Wait for independent route evidence before acting.</p></article></section>
     <section class="masthead" aria-labelledby="title">

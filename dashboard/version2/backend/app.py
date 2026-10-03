@@ -34,6 +34,7 @@ _status_cache: dict = {
     "distribution": {}, "tcp_peers": 0, "peer_ips": [],
     "error": "starting up...", "logs": [],
 }
+DEMO_BOTS = max(0, min(int(os.environ.get("DASH_DEMO_BOTS", "0")), 2000))
 
 def _poller():
     while True:
@@ -75,7 +76,13 @@ def health():
 @app.get("/api/status")
 def status():
     # Return instantly from cache — background thread keeps it fresh every 8s
-    return jsonify(_status_cache)
+    payload = dict(_status_cache)
+    if DEMO_BOTS:
+        # UI-only local visualization. No processes, connections, or traffic exist.
+        payload.update({"ok": True, "bot_total": DEMO_BOTS, "tcp_peers": 0,
+                        "peer_ips": [], "demo_mode": True,
+                        "error": "UI-only bot fleet simulation"})
+    return jsonify(payload)
 
 @app.get("/api/logs")
 def logs():
