@@ -164,6 +164,7 @@ const ctx    = canvas.getContext("2d");
 let W=0, H=0;
 let projNodes = [];
 let arcs = [];
+let impacts = [];
 
 function resize() {
   const r = canvas.parentElement.getBoundingClientRect();
@@ -177,9 +178,9 @@ function resize() {
    victims: medium-small (r=5) — red targets
    ----------------------------------------------------------- */
 const NODE_STYLE = {
-  attacker: { fill:"#ffe033", glow:"#ffe03380", r:6  },
-  bot:      { fill:"#00ff41", glow:"#00ff4140", r:2  },
-  victim:   { fill:"#ff2222", glow:"#ff222280", r:5  },
+  attacker: { fill:"#ffe033", glow:"#ffe03380", r:7  },
+  bot:      { fill:"#00ff41", glow:"#00ff4140", r:2.4  },
+  victim:   { fill:"#ff2222", glow:"#ff222280", r:7  },
 };
 
 /* ---- DRAW MAP -------------------------------------------- */
@@ -276,40 +277,72 @@ function drawNodes() {
 /* ---- ATTACK ARCS ----------------------------------------- */
 function bezierPt(p0,p1,p2,t){ return (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2; }
 
+const METHOD_COLOR = { udp:"#ff3333", syn:"#ff8800", default:"#ff3333" };
+
 function drawArcs() {
   const now  = Date.now();
   const live = [];
 
   for (const arc of arcs) {
-    const age = (now - arc.startTime)/1000;
     if (arc.startTime > now) { live.push(arc); continue; }
-    if (age > arc.duration + 1.5) continue;
+    const age = (now - arc.startTime)/1000;
+    if (age > arc.duration) {
+      impacts.push({ x:arc.tx, y:arc.ty, time:now, color: METHOD_COLOR[arc.method] || METHOD_COLOR.default });
+      continue;
+    }
     live.push(arc);
 
     const {fx,fy,tx,ty} = arc;
     const mx = (fx+tx)/2;
-    const my = (fy+ty)/2 - Math.hypot(tx-fx,ty-fy)*0.36;
+    const my = (fy+ty)/2 - Math.hypot(tx-fx,ty-fy)*0.32;
     const prog = Math.min(age/arc.duration, 1);
     const ex = bezierPt(fx,mx,tx,prog);
     const ey = bezierPt(fy,my,ty,prog);
+    const color = METHOD_COLOR[arc.method] || METHOD_COLOR.default;
 
     ctx.save();
-    ctx.strokeStyle = "#ff2222";
-    ctx.lineWidth   = 1;
-    ctx.shadowColor = "#ff2222";
-    ctx.shadowBlur  = 6;
-    ctx.setLineDash([4,4]);
-    ctx.lineDashOffset = -(now/35) % 8;
+    const grad = ctx.createLinearGradient(fx,fy,ex,ey);
+    grad.addColorStop(0, color+"00");
+    grad.addColorStop(.65, color+"66");
+    grad.addColorStop(1, color+"ff");
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 1.8;
+    ctx.lineCap     = "round";
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 7;
     ctx.beginPath(); ctx.moveTo(fx,fy);
     ctx.quadraticCurveTo(mx,my,ex,ey);
     ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.beginPath(); ctx.arc(ex,ey,2,0,Math.PI*2);
-    ctx.fillStyle="#ff5555"; ctx.fill();
+    ctx.shadowBlur  = 0;
+
+    // bright comet head
+    ctx.beginPath(); ctx.arc(ex,ey,2.4,0,Math.PI*2);
+    ctx.fillStyle   = "#fff8e8";
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 9;
+    ctx.fill();
     ctx.restore();
   }
 
   arcs = live;
+  drawImpacts(now);
+}
+
+/* ---- IMPACT BURSTS (ring pulse where arcs land) ----------- */
+function drawImpacts(now) {
+  const live = [];
+  for (const im of impacts) {
+    const age = (now - im.time)/1000;
+    if (age > 0.55) continue;
+    live.push(im);
+    const p = age/0.55;
+    ctx.beginPath();
+    ctx.arc(im.x, im.y, 5 + p*26, 0, Math.PI*2);
+    ctx.strokeStyle = im.color + Math.floor((1-p)*220).toString(16).padStart(2,"0");
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+  }
+  impacts = live;
 }
 
 /* ---- MAIN DRAW LOOP -------------------------------------- */
@@ -356,17 +389,33 @@ canvas.addEventListener("mousemove", e => {
 });
 canvas.addEventListener("mouseleave",()=>{ tooltip.style.top="-999px"; });
 
-/* ---- FIRE ATTACK ARCS ------------------------------------ */
-function fireArcs(victimKey, duration) {
+/* ---- FIRE ATTACK ARCS ------------------------------------
+   Waves of comet-beams launch continuously for the FULL attack
+   duration (not just the first slice) so the beam stays visible
+   for as long as the attack command is actually running.
+   ----------------------------------------------------------- */
+function fireArcs(victimKey, duration, method) {
   const victim = VICTIM_MAP[victimKey];
   if (!victim) return;
-  const {x:tx,y:ty} = project(victim.lat, victim.lon, W, H);
-  const bots = LAB_NODES.filter(n=>n.type==="bot");
-  const t0   = Date.now();
-  bots.forEach((bot,i) => {
-    const {x:fx,y:fy} = project(bot.lat,bot.lon,W,H);
-    arcs.push({ fx,fy,tx,ty, startTime:t0+i*90, duration:Math.max(duration/3,3) });
-  });
+  const { x:tx, y:ty } = project(victim.lat, victim.lon, W, H);
+  const bots = LAB_NODES.filter(n => n.type === "bot");
+  if (!bots.length) return;
+
+  const MAX_PER_WAVE = 26;      // cap concurrent beams for smooth 60fps
+  const FLIGHT_S     = 0.85;    // single beam travel time
+  const WAVE_GAP_MS  = 340;     // new wave launches every N ms
+  const waveBots     = bots.slice(0, MAX_PER_WAVE);
+  const totalMs       = Math.max(duration, 1) * 1000;
+  const waveCount      = Math.max(1, Math.round(totalMs / WAVE_GAP_MS));
+  const t0 = Date.now();
+
+  for (let w = 0; w < waveCount; w++) {
+    const waveStart = t0 + w * WAVE_GAP_MS;
+    waveBots.forEach((bot, i) => {
+      const { x:fx, y:fy } = project(bot.lat, bot.lon, W, H);
+      arcs.push({ fx, fy, tx, ty, method, startTime: waveStart + (i % 8) * 18, duration: FLIGHT_S });
+    });
+  }
 }
 
 /* ---- NODE LIST SIDEBAR ----------------------------------- */
@@ -632,7 +681,7 @@ document.querySelectorAll(".btn-atk").forEach(btn=>{
     const atkSt=document.getElementById("atk-status");
     if(atkSt) atkSt.textContent="> LAUNCHING: "+method.toUpperCase()+" >> "+vnode.ip+" // "+dur+"s";
 
-    fireArcs(victim, dur);
+    fireArcs(victim, dur, method);
 
     try{
       const r=await fetch(API_BASE+"/api/attack",{
@@ -669,10 +718,10 @@ const b_hd=document.getElementById("btn-http-stop");
 if(b_hd) b_hd.addEventListener("click",async()=>{ const d=await labPost("/api/lab/http/stop"); toast(d.ok?"HTTP.DOWN":"ERR: "+d.error,!d.ok); pollOverview(); });
 const b_ref=document.getElementById("btn-refresh");
 if(b_ref) b_ref.addEventListener("click",()=>{ pollStatus();pollLogs();pollOverview();toast(">> SYNC..."); });
-const toggleView=(name)=>document.body.classList.toggle(name);
-document.getElementById("btn-toggle-sidebar")?.addEventListener("click",()=>toggleView("sidebar-hidden"));
-document.getElementById("btn-toggle-console")?.addEventListener("click",()=>toggleView("console-hidden"));
-document.getElementById("btn-focus-map")?.addEventListener("click",()=>{document.body.classList.toggle("focus-map");resize();});
+const toggleView=(name,btn)=>{document.body.classList.toggle(name);btn?.classList.toggle("active",document.body.classList.contains(name));};
+document.getElementById("btn-toggle-sidebar")?.addEventListener("click",(e)=>{toggleView("sidebar-hidden",e.currentTarget);resize();});
+document.getElementById("btn-toggle-console")?.addEventListener("click",(e)=>{toggleView("console-hidden",e.currentTarget);resize();});
+document.getElementById("btn-focus-map")?.addEventListener("click",(e)=>{document.body.classList.toggle("focus-map");e.currentTarget.classList.toggle("active",document.body.classList.contains("focus-map"));resize();});
 
 /* ---- LOADER FORM ----------------------------------------- */
 const ldrForm=document.getElementById("loader-form");
