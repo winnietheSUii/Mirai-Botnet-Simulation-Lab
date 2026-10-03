@@ -1217,6 +1217,22 @@ if(b_hd) b_hd.addEventListener("click",async()=>{ const d=await labPost("/api/la
 const b_ref=document.getElementById("btn-refresh");
 if(b_ref) b_ref.addEventListener("click",()=>{ pollStatus();pollLogs();pollOverview();toast(">> SYNC..."); });
 const toggleView=(name,btn)=>{document.body.classList.toggle(name);btn?.classList.toggle("active",document.body.classList.contains(name));};
+/* ---- VIEW dropdown (declutters the header -- was 6 buttons
+   jammed into one row) ---- */
+const viewMenuBtn = document.getElementById("btn-view-menu");
+const viewMenu    = document.getElementById("viewMenu");
+function closeViewMenu(){ viewMenu.hidden = true; viewMenuBtn.setAttribute("aria-expanded","false"); viewMenuBtn.classList.remove("active"); }
+viewMenuBtn?.addEventListener("click",(e)=>{
+  e.stopPropagation();
+  const open = viewMenu.hidden;
+  viewMenu.hidden = !open;
+  viewMenuBtn.setAttribute("aria-expanded", String(open));
+  viewMenuBtn.classList.toggle("active", open);
+});
+viewMenu?.addEventListener("click",(e)=>{ if (e.target.closest(".vm-item")) closeViewMenu(); });
+document.addEventListener("click",(e)=>{ if (!viewMenu.hidden && !e.target.closest(".hdr-controls")) closeViewMenu(); });
+document.addEventListener("keydown",(e)=>{ if (e.key === "Escape") closeViewMenu(); });
+
 document.getElementById("btn-toggle-sidebar")?.addEventListener("click",(e)=>{toggleView("sidebar-hidden",e.currentTarget);resize();});
 document.getElementById("btn-toggle-console")?.addEventListener("click",(e)=>{toggleView("console-hidden",e.currentTarget);resize();});
 document.getElementById("btn-toggle-loader")?.addEventListener("click",(e)=>{
