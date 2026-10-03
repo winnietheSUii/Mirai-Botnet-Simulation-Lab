@@ -52,8 +52,17 @@ function render(node) {
   const history = node.history || []; const failed = history.filter((entry) => entry.public.state !== "online").length; const rate = history.length ? Math.round(failed / history.length * 100) : 0;
   text("probeRate", `${history.filter((entry) => entry.public.state === "online").length} / ${history.length}`); text("failureRate", history.length ? `${rate}%` : "—"); text("sampleWindow", history.length ? `${history.length} external probes in the current window.` : "No sample window yet.");
   text("customerImpact", pub.state === "unreachable" ? "Checkout and public actions blocked" : pub.state === "degraded" ? "Customer actions are delayed" : "No current public impact"); text("affectedActions", pub.state === "unreachable" ? "Northline shop checkout, field link check and support case cannot complete." : "The external observer can complete the public transaction."); text("nextStep", pub.state === "unreachable" && mgmt.state === "online" ? "Preserve OOB evidence" : "Continue observation"); text("nextStepDetail", pub.state === "unreachable" && mgmt.state === "online" ? "Use the independent telemetry path to assess ingress and service recovery. Do not rely on the public route." : "Compare public transaction status with the independent management route.");
-  const t = telemetry.telemetry || {}, app = telemetry.app || {}, system = telemetry.system || {};
+  const t = telemetry.telemetry || {}, app = telemetry.app || {}, system = telemetry.system || {}, threat = telemetry.threat || {}, health = telemetry.service_health || {};
   text("ingress", t.inbound_mbps !== undefined ? `${t.inbound_mbps} Mbps` : "STALE"); text("pps", t.inbound_pps !== undefined ? `${t.inbound_pps.toLocaleString()} pps` : "STALE"); text("workers", app.capacity ? `${app.active} / ${app.capacity}` : "STALE"); text("rejected", app.rejected ?? "STALE"); text("cpu", system.cpu_pct !== undefined ? `${system.cpu_pct}%` : "STALE"); text("memory", system.memory ? `${system.memory.pct}%` : "STALE");
+  const workerPct = app.capacity ? Math.round((app.active / app.capacity) * 100) : 0;
+  const gauge = $("workersGauge"); gauge.style.setProperty("--fill", `${workerPct}%`); gauge.classList.toggle("hot", workerPct >= 80);
+  const threatLevel = (threat.level || "nominal").toLowerCase();
+  $("threatReadout").dataset.level = threatLevel;
+  text("threatVector", threat.vector && threat.vector !== "NONE" ? threat.vector.replace(/_/g, " ") : "No anomalous ingress");
+  text("threatLevel", threat.level || "NOMINAL");
+  text("peakIngress", t.peak_mbps !== undefined ? `${t.peak_mbps} Mbps / ${(t.peak_pps || 0).toLocaleString()} pps` : "STALE");
+  text("dataAbsorbed", t.total_sunk_mb !== undefined ? `${t.total_sunk_mb} MB` : "STALE");
+  text("agentSelfCheck", health.healthy !== undefined ? (health.healthy ? `Healthy · ${health.latency_ms} ms` : `Unhealthy · ${health.status_text}`) : "STALE");
   $("demoFlag").hidden = !telemetry.demo_mode;
   $("trace").innerHTML = traceMarkup(node.trace || []);
   $("events").innerHTML = (node.events || []).length ? node.events.map((event) => `<li class="${event.kind}"><time>${fullTime(event.timestamp)}</time><span>${event.message}</span></li>`).join("") : "<li>Waiting for a state change.</li>";
