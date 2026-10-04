@@ -42,6 +42,32 @@ function chart(history) {
   history.forEach((sample, i) => { if (sample.public.state === "unreachable") { const p = point(values[i], i); ctx.fillStyle = "#ff4d6d"; ctx.fillRect(p.x - 2.5, p.y - 2.5, 5, 5); } });
 }
 
+function ingressChart(history) {
+  const canvas = $("ingressChart");
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, rect.width), h = Math.max(1, rect.height);
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr); ctx.clearRect(0, 0, w, h);
+  const pad = { x: 10, y: 10 }; const innerW = w - pad.x * 2, innerH = h - pad.y * 2;
+  ctx.lineWidth = 1; ctx.strokeStyle = "rgba(189, 213, 226, .08)";
+  for (let i = 0; i < 3; i += 1) { const y = pad.y + innerH * i / 2; ctx.beginPath(); ctx.moveTo(pad.x, y); ctx.lineTo(w - pad.x, y); ctx.stroke(); }
+  if (!history.length) return;
+  const mbps = history.map((s) => (s.telemetry && s.telemetry.telemetry && s.telemetry.telemetry.inbound_mbps) || 0);
+  const pps = history.map((s) => (s.telemetry && s.telemetry.telemetry && s.telemetry.telemetry.inbound_pps) || 0);
+  const maxMbps = Math.max(10, ...mbps) * 1.15;
+  const maxPps = Math.max(2000, ...pps) * 1.15;
+  const point = (value, max, i, len) => ({ x: pad.x + (len === 1 ? innerW : innerW * i / (len - 1)), y: pad.y + innerH - Math.min(value / max, 1) * innerH });
+  const drawSeries = (values, max, color) => {
+    ctx.beginPath();
+    values.forEach((value, i) => { const p = point(value, max, i, values.length); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.stroke();
+  };
+  drawSeries(pps, maxPps, "rgba(101,229,135,.75)");
+  drawSeries(mbps, maxMbps, "#58e6ff");
+}
+
 function traceMarkup(trace) {
   const rows = publicOnly ? trace.filter((row) => row.plane === "PUBLIC") : trace;
   if (!rows.length) return "<li>Waiting for observer evidence.</li>";
@@ -73,7 +99,7 @@ function render(node) {
   tweenText("cpu", system.cpu_pct !== undefined ? system.cpu_pct : "STALE", (v) => `${v.toFixed(1)}%`);
   tweenText("memory", system.memory ? system.memory.pct : "STALE", (v) => `${v.toFixed(1)}%`);
   const workerPct = app.capacity ? Math.round((app.active / app.capacity) * 100) : 0;
-  const gauge = $("workersGauge"); gauge.style.setProperty("--fill", `${workerPct}%`); gauge.classList.toggle("hot", workerPct >= 80);
+  const gauge = $("workersGauge"); if (gauge) { gauge.style.setProperty("--fill", `${workerPct}%`); gauge.classList.toggle("hot", workerPct >= 80); }
   const threatLevel = (threat.level || "nominal").toLowerCase();
   $("threatReadout").dataset.level = threatLevel;
   text("threatVector", threat.vector && threat.vector !== "NONE" ? threat.vector.replace(/_/g, " ") : "No anomalous ingress");
@@ -85,6 +111,7 @@ function render(node) {
   $("trace").innerHTML = traceMarkup(node.trace || []);
   $("events").innerHTML = (node.events || []).length ? node.events.map((event) => `<li class="${event.kind}"><time>${fullTime(event.timestamp)}</time><span>${event.message}</span></li>`).join("") : "<li>Waiting for a state change.</li>";
   chart(history);
+  ingressChart(history);
 }
 
 function moveTabIndicator() {
@@ -128,7 +155,7 @@ async function refresh() {
     renderFleet(data.victims);
     render(data.victims[active]);
   }
-  catch { document.querySelector(".observer").classList.add("offline"); text("summary", "The local observer endpoint is unavailable. No conclusion should be drawn from stale data."); }
+  catch (err) { console.error("refresh() failed:", err); document.querySelector(".observer").classList.add("offline"); text("summary", "The local observer endpoint is unavailable. No conclusion should be drawn from stale data."); }
 }
 
 document.querySelectorAll(".tab").forEach((button) => button.addEventListener("click", () => { setActive(button.dataset.victim); refresh(); }));
