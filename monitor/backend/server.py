@@ -84,7 +84,18 @@ class Store:
                 "latency_ms": latency,
                 "result": public_state,
                 "detail": public_data.get("message") or error or "transaction probe complete",
+                "payload": public_data,
             })
+            agent_telemetry = (agent_data or {}).get("telemetry", {})
+            agent_payload = {
+                "load_state": (agent_data or {}).get("load_state"),
+                "inbound_mbps": agent_telemetry.get("inbound_mbps"),
+                "inbound_pps": agent_telemetry.get("inbound_pps"),
+                "cpu_pct": ((agent_data or {}).get("system") or {}).get("cpu_pct"),
+                "threat": ((agent_data or {}).get("threat") or {}).get("state"),
+                "app_active": ((agent_data or {}).get("app") or {}).get("active"),
+                "app_capacity": ((agent_data or {}).get("app") or {}).get("capacity"),
+            } if agent_status == 200 else {"error": agent_error or "no response"}
             node["trace"].appendleft({
                 "timestamp": now,
                 "plane": "OOB",
@@ -96,6 +107,7 @@ class Store:
                 "latency_ms": agent_latency,
                 "result": management_state,
                 "detail": agent_error or "telemetry sample received",
+                "payload": agent_payload,
             })
             if not previous or previous["public"]["state"] != public_state:
                 node["events"].appendleft({"timestamp": now, "kind": public_state, "message": self.event_message(config["label"], public_state, latency)})
