@@ -155,7 +155,7 @@ body::after{
 
 /* === TARGETING HUD (click a victim node to open) === */
 .target-hud{
-  position:absolute;z-index:60;width:238px;
+  position:absolute;z-index:60;width:296px;
   background:rgba(5,2,2,.95);border:1px solid var(--red-dim);
   box-shadow:0 0 0 1px #000,0 0 24px #ff222240,0 12px 30px rgba(0,0,0,.6);
   padding:10px 12px 12px;
@@ -174,10 +174,10 @@ body::after{
 .hud-close:hover{color:var(--red);border-color:var(--red)}
 .hud-ip{color:var(--red);font-size:16px;font-weight:bold;letter-spacing:2px;margin-bottom:10px;font-variant-numeric:tabular-nums}
 .hud-section-label{color:var(--green-dim);font-size:10px;letter-spacing:2px;margin-bottom:5px}
-.hud-methods,.hud-durations{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px}
+.hud-methods,.hud-durations{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:10px}
 .hud-method,.hud-dur{
   background:transparent;border:1px solid var(--border);color:var(--green-dim);
-  font-family:var(--font);font-size:12px;padding:6px 4px;cursor:pointer;
+  font-family:var(--font);font-size:11px;padding:6px 3px;cursor:pointer;
   transition:border-color .15s,color .15s,background .15s;
 }
 .hud-method small{display:block;font-size:8px;letter-spacing:1px;opacity:.7}
@@ -186,6 +186,11 @@ body::after{
 .hud-method[data-method="syn"].active{border-color:var(--orange);color:var(--orange);background:#1a0f00}
 .hud-method[data-method="ack"].active{border-color:#b84dff;color:#b84dff;background:#15001a}
 .hud-method[data-method="stomp"].active{border-color:#ff4da6;color:#ff4da6;background:#1a0012}
+.hud-method[data-method="dns"].active{border-color:#ffe033;color:#ffe033;background:#1a1600}
+.hud-method[data-method="vse"].active{border-color:#22e0ff;color:#22e0ff;background:#00171a}
+.hud-method[data-method="greip"].active{border-color:#39ff6a;color:#39ff6a;background:#001a07}
+.hud-method[data-method="greeth"].active{border-color:#ff5fa2;color:#ff5fa2;background:#1a000e}
+.hud-method[data-method="udpplain"].active{border-color:#3388ff;color:#3388ff;background:#000f1a}
 @keyframes hudChipLock{0%,100%{box-shadow:inset 0 0 8px #ff222230}50%{box-shadow:inset 0 0 14px #ff222260}}
 @media(prefers-reduced-motion:reduce){.hud-method.active,.hud-dur.active{animation:none;box-shadow:inset 0 0 8px #ff222230}}
 .hud-launch{

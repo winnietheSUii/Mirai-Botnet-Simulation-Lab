@@ -482,7 +482,11 @@ function drawNodes() {
 /* ---- ATTACK ARCS ----------------------------------------- */
 function bezierPt(p0,p1,p2,t){ return (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2; }
 
-const METHOD_COLOR = { udp:"#ff3333", syn:"#ff8800", ack:"#b84dff", stomp:"#ff4da6", default:"#ff3333" };
+const METHOD_COLOR = {
+  udp:"#ff3333", syn:"#ff8800", ack:"#b84dff", stomp:"#ff4da6",
+  dns:"#ffe033", vse:"#22e0ff", greip:"#39ff6a", greeth:"#ff5fa2", udpplain:"#3388ff",
+  default:"#ff3333",
+};
 
 function drawArcs() {
   const now  = Date.now();
