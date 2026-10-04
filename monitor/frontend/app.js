@@ -22,6 +22,30 @@ function shortTime(value) { return value ? new Date(value * 1000).toLocaleTimeSt
 function fullTime(value) { return value ? new Date(value * 1000).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", year: "numeric", month: "short", day: "numeric", hour12: false }) : "No sample"; }
 function nodeId(key) { return `OBS-${key.toUpperCase()}-${String(new Date().getUTCDate()).padStart(2, "0")}`; }
 
+// Smooth path through points via quadratic curves to segment midpoints --
+// cheap, no library, reads as a real analog waveform instead of a jagged
+// polyline of straight segments.
+function smoothPath(ctx, pts) {
+  ctx.beginPath();
+  if (pts.length < 2) { if (pts.length === 1) { ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[0].x, pts[0].y); } return; }
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 0; i < pts.length - 1; i += 1) {
+    const cur = pts[i], next = pts[i + 1];
+    const midX = (cur.x + next.x) / 2, midY = (cur.y + next.y) / 2;
+    ctx.quadraticCurveTo(cur.x, cur.y, midX, midY);
+  }
+  const last = pts[pts.length - 1];
+  ctx.lineTo(last.x, last.y);
+}
+
+function glowDot(ctx, x, y, color) {
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, 10);
+  halo.addColorStop(0, color + "aa"); halo.addColorStop(1, color + "00");
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, 1.3, 0, Math.PI * 2); ctx.fill();
+}
+
 function chart(history) {
   const canvas = $("latencyChart");
   const rect = canvas.getBoundingClientRect();
@@ -36,10 +60,28 @@ function chart(history) {
   const values = history.map((s) => s.public.state === "unreachable" ? 3000 : Math.min(s.public.latency_ms || 3000, 3000));
   const max = Math.max(1000, ...values) * 1.08;
   const point = (value, i) => ({ x: pad.x + (values.length === 1 ? innerW : innerW * i / (values.length - 1)), y: pad.y + innerH - Math.min(value / max, 1) * innerH });
+  const pts = values.map((v, i) => point(v, i));
   const lastState = history.at(-1)?.public.state;
-  ctx.beginPath(); values.forEach((value, i) => { const p = point(value, i); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
-  ctx.strokeStyle = lastState === "unreachable" ? "#ff4d6d" : lastState === "degraded" ? "#f6ae2d" : "#58e6ff"; ctx.lineWidth = 2; ctx.stroke();
+  const color = lastState === "unreachable" ? "#ff4d6d" : lastState === "degraded" ? "#f6ae2d" : "#58e6ff";
+
+  // Gradient fill under the curve down to the baseline -- turns a bare
+  // line into a real "area" waveform, reads as fuller/more alive.
+  smoothPath(ctx, pts);
+  const last = pts[pts.length - 1], first = pts[0];
+  ctx.lineTo(last.x, pad.y + innerH); ctx.lineTo(first.x, pad.y + innerH); ctx.closePath();
+  const fill = ctx.createLinearGradient(0, pad.y, 0, pad.y + innerH);
+  fill.addColorStop(0, color + "33"); fill.addColorStop(1, color + "00");
+  ctx.fillStyle = fill; ctx.fill();
+
+  // Glowing stroke on top of the fill -- shadowBlur gives it a real neon
+  // line feel instead of a flat 2px stroke.
+  smoothPath(ctx, pts);
+  ctx.shadowColor = color; ctx.shadowBlur = 8;
+  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.lineJoin = "round"; ctx.stroke();
+  ctx.shadowBlur = 0;
+
   history.forEach((sample, i) => { if (sample.public.state === "unreachable") { const p = point(values[i], i); ctx.fillStyle = "#ff4d6d"; ctx.fillRect(p.x - 2.5, p.y - 2.5, 5, 5); } });
+  glowDot(ctx, last.x, last.y, color);
 }
 
 function ingressChart(history) {
@@ -59,20 +101,36 @@ function ingressChart(history) {
   const maxMbps = Math.max(10, ...mbps) * 1.15;
   const maxPps = Math.max(2000, ...pps) * 1.15;
   const point = (value, max, i, len) => ({ x: pad.x + (len === 1 ? innerW : innerW * i / (len - 1)), y: pad.y + innerH - Math.min(value / max, 1) * innerH });
-  const drawSeries = (values, max, color) => {
-    ctx.beginPath();
-    values.forEach((value, i) => { const p = point(value, max, i, values.length); i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y); });
-    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.stroke();
+  const drawSeries = (values, max, color, glow) => {
+    const pts = values.map((v, i) => point(v, max, i, values.length));
+    smoothPath(ctx, pts);
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 6; }
+    ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.lineJoin = "round"; ctx.stroke();
+    ctx.shadowBlur = 0;
   };
-  drawSeries(pps, maxPps, "rgba(101,229,135,.75)");
-  drawSeries(mbps, maxMbps, "#58e6ff");
+  drawSeries(pps, maxPps, "rgba(101,229,135,.75)", false);
+  drawSeries(mbps, maxMbps, "#58e6ff", true);
 }
+
+function escapeHtml(str) { return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
 function traceMarkup(trace) {
   const rows = publicOnly ? trace.filter((row) => row.plane === "PUBLIC") : trace;
   if (!rows.length) return "<li>Waiting for observer evidence.</li>";
-  return rows.slice(0, 32).map((row) => `<li class="trace-row ${row.result}"><time>${shortTime(row.timestamp)}</time><b class="plane ${row.plane.toLowerCase()}">${row.plane}</b><span class="destination">${row.destination}</span><span class="request">${row.protocol} ${row.target}</span><span class="result">${row.status} · ${stateLabel(row.result)}</span><span class="rtt">${row.latency_ms}ms</span><span class="trace-detail">${row.detail}</span></li>`).join("");
+  return rows.slice(0, 32).map((row) => {
+    const payloadText = row.payload ? JSON.stringify(row.payload, null, 2) : "No payload captured for this probe.";
+    return `<li class="trace-row-wrap"><button type="button" class="trace-row ${row.result}"><time>${shortTime(row.timestamp)}</time><b class="plane ${row.plane.toLowerCase()}">${row.plane}</b><span class="destination">${row.destination}</span><span class="request">${row.protocol} ${row.target}</span><span class="result">${row.status} · ${stateLabel(row.result)}</span><span class="rtt">${row.latency_ms}ms</span><span class="trace-detail">${row.detail}</span></button><div class="trace-payload"><pre>${escapeHtml(payloadText)}</pre></div></li>`;
+  }).join("");
 }
+
+// Click any row to expand its raw response payload -- real evidence, not
+// just the one-line summary. Delegated listener since rows are rebuilt
+// every poll (re-attaching per-row listeners would leak/duplicate).
+$("trace").addEventListener("click", (event) => {
+  const row = event.target.closest(".trace-row");
+  if (!row) return;
+  row.closest(".trace-row-wrap").classList.toggle("expanded");
+});
 
 function render(node) {
   const sample = node.latest, meta = node.meta;
