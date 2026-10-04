@@ -33,9 +33,41 @@ const VICTIM_MAP = {};
 STATIC_NODES.filter(n => n.type === "victim").forEach(v => { VICTIM_MAP[v.victimKey] = v; });
 
 const ALL_BOTS = [];
-const REGIONS = [{lat:39,lon:-98,c:"USA"},{lat:23,lon:-102,c:"Mexico"},{lat:-14,lon:-52,c:"Brazil"},{lat:-35,lon:-64,c:"Argentina"},{lat:51,lon:10,c:"Germany"},{lat:46,lon:2,c:"France"},{lat:40,lon:-4,c:"Spain"},{lat:55,lon:-3,c:"United Kingdom"},{lat:52,lon:19,c:"Poland"},{lat:41,lon:12,c:"Italy"},{lat:55,lon:37,c:"Russia"},{lat:31,lon:35,c:"Middle East"},{lat:21,lon:78,c:"India"},{lat:35,lon:104,c:"China"},{lat:36,lon:138,c:"Japan"},{lat:36,lon:128,c:"South Korea"},{lat:15,lon:101,c:"Thailand"},{lat:-2,lon:118,c:"Indonesia"},{lat:-25,lon:134,c:"Australia"},{lat:7,lon:21,c:"Central Africa"}];
+// Real city coordinates (not country centroids), deliberately NOT
+// reusing any STATIC_NODES coordinate (C2 48.80,2.35 / Loader
+// 48.85,2.50 / victims incl. NYC 40.71,-74.01 / Shanghai
+// 31.23,121.47) -- an earlier pass collided with those exactly,
+// which looked like bots firing from on top of the target itself.
+// Jitter is wide so 1200 bots actually fan out and read as a real
+// swarm instead of clumping into ~20 single blobs.
+const REGIONS = [
+  {lat:34.05,lon:-118.24,c:"USA"},{lat:41.88,lon:-87.63,c:"USA"},{lat:29.76,lon:-95.37,c:"USA"},{lat:47.61,lon:-122.33,c:"USA"},{lat:33.75,lon:-84.39,c:"USA"},
+  {lat:19.43,lon:-99.13,c:"Mexico"},{lat:20.66,lon:-103.35,c:"Mexico"},
+  {lat:-23.55,lon:-46.63,c:"Brazil"},{lat:-22.91,lon:-43.17,c:"Brazil"},{lat:-15.79,lon:-47.88,c:"Brazil"},
+  {lat:-34.60,lon:-58.38,c:"Argentina"},
+  {lat:52.52,lon:13.40,c:"Germany"},{lat:48.14,lon:11.58,c:"Germany"},{lat:50.11,lon:8.68,c:"Germany"},
+  {lat:45.76,lon:4.84,c:"France"},{lat:43.30,lon:5.37,c:"France"},
+  {lat:40.42,lon:-3.70,c:"Spain"},{lat:41.39,lon:2.17,c:"Spain"},
+  {lat:51.51,lon:-0.13,c:"United Kingdom"},{lat:53.48,lon:-2.24,c:"United Kingdom"},
+  {lat:52.23,lon:21.01,c:"Poland"},
+  {lat:41.90,lon:12.50,c:"Italy"},{lat:45.46,lon:9.19,c:"Italy"},
+  {lat:55.75,lon:37.62,c:"Russia"},{lat:55.03,lon:82.92,c:"Russia"},
+  {lat:24.71,lon:46.68,c:"Middle East"},{lat:25.20,lon:55.27,c:"Middle East"},
+  {lat:19.08,lon:72.88,c:"India"},{lat:28.61,lon:77.23,c:"India"},{lat:12.97,lon:77.59,c:"India"},
+  {lat:39.90,lon:116.41,c:"China"},{lat:22.54,lon:114.06,c:"China"},{lat:23.13,lon:113.26,c:"China"},
+  {lat:35.68,lon:139.69,c:"Japan"},{lat:34.69,lon:135.50,c:"Japan"},
+  {lat:37.57,lon:126.98,c:"South Korea"},
+  {lat:13.75,lon:100.50,c:"Thailand"},
+  {lat:-6.21,lon:106.85,c:"Indonesia"},
+  {lat:-33.87,lon:151.21,c:"Australia"},{lat:-37.81,lon:144.96,c:"Australia"},
+  {lat:6.52,lon:3.38,c:"Central Africa"},{lat:-1.29,lon:36.82,c:"Central Africa"},
+];
 for(let i=1; i<=2000; i++){
-  const r = REGIONS[(i * 7) % REGIONS.length];
+  // Plain i % length -- NOT i*7 % length. REGIONS.length is 42
+  // (divisible by 7), so *7 only ever lands on 6 distinct indices
+  // (42/gcd(7,42)=6) no matter how many bots get generated. That
+  // was the actual cause of "100 bots, only 6 visible clusters".
+  const r = REGIONS[i % REGIONS.length];
   const s = Math.sin(i) * 10000;
   const rand1 = s - Math.floor(s);
   const s2 = Math.cos(i) * 10000;
@@ -43,8 +75,8 @@ for(let i=1; i<=2000; i++){
   ALL_BOTS.push({
     id:"bot"+i, type:"bot", label:"BOT-"+i,
     ip: "10." + Math.floor(rand1*255) + "." + Math.floor(rand2*255) + "." + (i%255),
-    lat: r.lat + (rand1-.5)*2.4,
-    lon: r.lon + (rand2-.5)*3.2,
+    lat: r.lat + (rand1-.5)*1.6,
+    lon: r.lon + (rand2-.5)*2.2,
     country: r.c
   });
 }
@@ -343,13 +375,13 @@ function drawMap() {
    ----------------------------------------------------------- */
 let botSprite = null;
 (function buildBotSprite(){
-  const size = 20;
+  const size = 14;
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d");
   const grad = g.createRadialGradient(size/2,size/2,0, size/2,size/2,size/2);
-  grad.addColorStop(0,   "#00ff4155");
-  grad.addColorStop(.5,  "#00ff4122");
+  grad.addColorStop(0,   "#5bffa0a0");
+  grad.addColorStop(.5,  "#00ff4130");
   grad.addColorStop(1,   "#00ff4100");
   g.fillStyle = grad;
   g.beginPath(); g.arc(size/2,size/2,size/2,0,Math.PI*2); g.fill();
@@ -362,7 +394,7 @@ function drawNodes() {
   const now = Date.now();
 
   const allBots  = LAB_NODES.filter(n => n.type === "bot");
-  const BOT_CAP  = 220;
+  const BOT_CAP  = 600;
   // Evenly-sampled spread across the full swarm instead of always
   // re-drawing the same first-N bots -- the map should reflect scale.
   const step       = Math.max(1, Math.ceil(allBots.length / BOT_CAP));
@@ -370,14 +402,11 @@ function drawNodes() {
   let visibleNodes = LAB_NODES.length > 80 ? [...LAB_NODES.filter(n=>n.type!=="bot"), ...sampleBots] : LAB_NODES;
   if (hideLoaderNode) visibleNodes = visibleNodes.filter(n => n.id !== "ldr");
 
-  // Pass 1: additive glow for every bot -- dense clusters bloom brighter on their own
-  ctx.globalCompositeOperation = "lighter";
-  for (const node of visibleNodes) {
-    if (node.type !== "bot") continue;
-    const {x,y} = project(node.lat, node.lon, W, H);
-    ctx.drawImage(botSprite, x-10, y-10, 20, 20);
-  }
-  ctx.globalCompositeOperation = "source-over";
+  // NOTE: bot glow is drawn with normal (source-over) blending below,
+  // per-node -- deliberately NOT additive/"lighter". Additive glow
+  // means any two nearby bots visually MERGE into one bright blob no
+  // matter how small each sprite is; that was the actual cause of
+  // bots reading as "grouped" instead of as separate dots.
 
   for (const node of visibleNodes) {
     const {x,y} = project(node.lat, node.lon, W, H);
@@ -386,9 +415,10 @@ function drawNodes() {
     if (node.type === "bot") {
       /* ------ PIXEL CORE: constant size, real peers brighter ------ */
       const isReal = node.id.startsWith("bot_peer_");
-      const px = isReal ? 3.4 : 2.2;
-      ctx.fillStyle = isReal ? "#d8ffe2" : "#1fae4a";
-      ctx.globalAlpha = isReal ? .95 : .62;
+      ctx.drawImage(botSprite, x-7, y-7, 14, 14); // normal blend, no stacking/merging
+      const px = isReal ? 3.2 : 2.2;
+      ctx.fillStyle = isReal ? "#e8fff0" : "#00ff41";
+      ctx.globalAlpha = isReal ? 1 : .88;
       ctx.fillRect(x-px/2, y-px/2, px, px);
       ctx.globalAlpha = 1;
 
@@ -990,9 +1020,11 @@ if(clrBtn) clrBtn.addEventListener("click",()=>{ document.getElementById("termin
 let _lastBotTotal=0;
 let _knownBotIps=new Set(); // track per-IP join/leave events
 
+const SIM_BOT_CAP = 100; // cap the simulated swarm size for a clean, individually-visible map
+
 function applyStatus(data){
   const cncUp = !!data.cnc_up;
-  const bots  = data.bot_total ?? 0;
+  const bots  = Math.min(SIM_BOT_CAP, data.bot_total ?? 0);
   const peers = data.tcp_peers ?? "--";
 
   const peerIps = data.peer_ips || [];
@@ -1027,27 +1059,28 @@ function applyStatus(data){
       const firstOctet = parseInt(cleanIp.split('.')[0] || "10");
 
       let r = REGIONS[seed % REGIONS.length];
-      
-      if (firstOctet === 110 || firstOctet === 125) { r = {lat:[10,20], lon:[90,110], c:"Thailand"}; }
-      else if (firstOctet === 66) { r = {lat:[30,48], lon:[-120,-70], c:"USA"}; }
-      else if (firstOctet === 210) { r = {lat:[35,40], lon:[125,130], c:"South Korea"}; }
-      else if (firstOctet === 114) { r = {lat:[20,40], lon:[100,120], c:"China"}; }
-      else if (firstOctet === 95 || firstOctet === 217) { r = {lat:[50,60], lon:[30,50], c:"Russia"}; }
-      else if (firstOctet === 46) { r = {lat:[48,54], lon:[6,14], c:"Germany"}; }
-      else if (firstOctet === 177) { r = {lat:[-30,-10], lon:[-60,-40], c:"Brazil"}; }
-      else if (firstOctet === 8) { r = {lat:[50,58], lon:[-6,2], c:"United Kingdom"}; }
-      else if (firstOctet === 1) { r = {lat:[32,42], lon:[130,145], c:"Japan"}; }
-      
+
+      if (firstOctet === 110 || firstOctet === 125) { r = {lat:15, lon:101, c:"Thailand"}; }
+      else if (firstOctet === 66) { r = {lat:39, lon:-98, c:"USA"}; }
+      else if (firstOctet === 210) { r = {lat:36, lon:128, c:"South Korea"}; }
+      else if (firstOctet === 114) { r = {lat:35, lon:104, c:"China"}; }
+      else if (firstOctet === 95 || firstOctet === 217) { r = {lat:55, lon:37, c:"Russia"}; }
+      else if (firstOctet === 46) { r = {lat:51, lon:10, c:"Germany"}; }
+      else if (firstOctet === 177) { r = {lat:-14, lon:-52, c:"Brazil"}; }
+      else if (firstOctet === 8) { r = {lat:55, lon:-3, c:"United Kingdom"}; }
+      else if (firstOctet === 1) { r = {lat:36, lon:138, c:"Japan"}; }
+
       const rand1 = ((seed * 9301 + 49297) % 233280) / 233280;
       const rand2 = ((seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-      
+      const lat = r.lat + (rand1-.5)*1.6;
+      const lon = r.lon + (rand2-.5)*2.2;
+
       LAB_NODES.push({
         id: "bot_peer_" + i,
         type: "bot",
         label: "BOT-" + (i+1),
         ip: cleanIp,
-        lat: r.lat[0] + rand1 * (r.lat[1] - r.lat[0]),
-        lon: r.lon[0] + rand2 * (r.lon[1] - r.lon[0]),
+        lat, lon,
         country: r.c
       });
     });
