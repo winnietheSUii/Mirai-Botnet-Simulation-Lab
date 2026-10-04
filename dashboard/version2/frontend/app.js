@@ -1261,8 +1261,8 @@ document.querySelectorAll(".btn-atk-launch").forEach(btn=>{
   btn.addEventListener("click",async()=>{
     const victim  = btn.dataset.victim;
     const row     = btn.closest(".atk-row");
-    const method  = row?.querySelector(".atk-method-select")?.value || "udp";
-    const dur     = parseInt(row?.querySelector(".atk-dur-select")?.value || "10");
+    const method  = row?.querySelector('.atk-dd[data-kind="method"]')?.dataset.value || "udp";
+    const dur     = parseInt(row?.querySelector('.atk-dd[data-kind="dur"]')?.dataset.value || "10");
     const vnode   = VICTIM_MAP[victim];
     if(!vnode) return;
 
