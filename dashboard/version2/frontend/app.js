@@ -1257,15 +1257,15 @@ document.querySelectorAll(".btn-quick").forEach(b=>{
 });
 
 /* ---- ATTACK BUTTONS -------------------------------------- */
-document.querySelectorAll(".btn-atk").forEach(btn=>{
+document.querySelectorAll(".btn-atk-launch").forEach(btn=>{
   btn.addEventListener("click",async()=>{
     const victim  = btn.dataset.victim;
-    const method  = btn.dataset.method;
-    const dur     = parseInt(btn.dataset.duration);
+    const row     = btn.closest(".atk-row");
+    const method  = row?.querySelector(".atk-method-select")?.value || "udp";
+    const dur     = parseInt(row?.querySelector(".atk-dur-select")?.value || "10");
     const vnode   = VICTIM_MAP[victim];
     if(!vnode) return;
 
-    const row=btn.closest(".atk-row");
     if(row) row.classList.add("firing");
     updateVitals(_lastBotTotal);
     const atkSt=document.getElementById("atk-status");

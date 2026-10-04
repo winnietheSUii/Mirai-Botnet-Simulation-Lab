@@ -380,25 +380,25 @@ body::after{
 .atk-name{color:var(--white);font-size:13px;letter-spacing:0;flex:1;overflow:hidden;white-space:nowrap}
 .atk-ip{color:var(--red);font-size:14px;width:130px;flex-shrink:0;text-align:right;font-weight:bold;transition:text-shadow .18s ease}
 .atk-row:hover .atk-ip,.atk-row.firing .atk-ip{text-shadow:0 0 8px #ff222290}
-.atk-btns{display:flex;gap:6px;flex-shrink:0;margin-left:10px}
-.btn-atk{
-  display:flex;flex-direction:column;align-items:center;gap:1px;
-  min-width:58px;background:#0a0000;border:1px solid var(--red-dim);
-  font-family:var(--font);padding:5px 10px;cursor:pointer;
-  transition:border-color .15s ease,background .15s ease,box-shadow .15s ease,scale .1s ease;
+.atk-btns{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:10px}
+.atk-method-select,.atk-dur-select{
+  background:#0a0000;border:1px solid var(--red-dim);color:var(--red-dim);
+  font-family:var(--font);font-size:11px;padding:6px 4px;cursor:pointer;
+  transition:border-color .15s ease,color .15s ease,box-shadow .15s ease;
 }
-.btn-atk b{color:var(--red-dim);font-size:13px;letter-spacing:1px;transition:color .15s ease}
-.btn-atk small{color:#7a3a3a;font-size:10px;letter-spacing:.5px;transition:color .15s ease}
-.btn-atk:hover{border-color:var(--red);background:#1c0000;box-shadow:var(--glow-red);scale:1.05}
-.btn-atk:hover b{color:var(--red)}
-.btn-atk:hover small{color:#ffb5b5}
-.btn-atk:active{scale:.94;background:#2a0000}
-/* SYN buttons read orange -- same colour language as the SYN beam on the map */
-.btn-atk[data-method="syn"]{border-color:var(--orange)}
-.btn-atk[data-method="syn"] b{color:var(--orange)}
-.btn-atk[data-method="syn"] small{color:#8a5a2a}
-.btn-atk[data-method="syn"]:hover{border-color:#ffaa33;box-shadow:0 0 4px #ff8800,0 0 8px #ff880060}
-.btn-atk[data-method="syn"]:hover small{color:#ffd9a0}
+.atk-method-select{min-width:78px}
+.atk-dur-select{min-width:52px}
+.atk-method-select:hover,.atk-dur-select:hover,.atk-method-select:focus,.atk-dur-select:focus{
+  border-color:var(--red);color:var(--red);outline:none;box-shadow:0 0 4px #ff222260;
+}
+.btn-atk-launch{
+  background:var(--red-dim);border:1px solid var(--red);color:#fff;
+  font-family:var(--font);font-size:11px;font-weight:bold;letter-spacing:1px;
+  padding:7px 12px;cursor:pointer;
+  transition:background .15s ease,box-shadow .15s ease,scale .1s ease;
+}
+.btn-atk-launch:hover{background:var(--red);box-shadow:var(--glow-red);scale:1.05}
+.btn-atk-launch:active{scale:.94}
 .atk-status{font-size:14px;color:var(--red);min-height:18px;margin-top:6px;letter-spacing:1px;font-weight:bold;transition:color .2s ease}
 @media(prefers-reduced-motion:reduce){.atk-row:before{animation:none}.atk-row.firing{animation:none}}
 
