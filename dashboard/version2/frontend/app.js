@@ -56,18 +56,53 @@ const REGIONS = [
   {lat:19.08,lon:72.88,c:"India"},{lat:28.61,lon:77.23,c:"India"},{lat:12.97,lon:77.59,c:"India"},
   {lat:39.90,lon:116.41,c:"China"},{lat:22.54,lon:114.06,c:"China"},{lat:23.13,lon:113.26,c:"China"},
   {lat:35.68,lon:139.69,c:"Japan"},{lat:34.69,lon:135.50,c:"Japan"},
-  {lat:37.57,lon:126.98,c:"South Korea"},
-  {lat:13.75,lon:100.50,c:"Thailand"},
-  {lat:-6.21,lon:106.85,c:"Indonesia"},
+  {lat:37.57,lon:126.98,c:"South Korea"},{lat:35.18,lon:129.08,c:"South Korea"},
+  {lat:13.75,lon:100.50,c:"Thailand"},{lat:18.79,lon:98.98,c:"Thailand"},
+  {lat:-6.21,lon:106.85,c:"Indonesia"},{lat:-7.25,lon:112.75,c:"Indonesia"},
   {lat:-33.87,lon:151.21,c:"Australia"},{lat:-37.81,lon:144.96,c:"Australia"},
   {lat:6.52,lon:3.38,c:"Central Africa"},{lat:-1.29,lon:36.82,c:"Central Africa"},
 ];
+
+// Guaranteed-separation layout: when N bots share one city anchor,
+// they get a ring index/slot (ring, ringTotal) instead of baked-in
+// lat/lon jitter. Degree-based jitter looked fine in a raw coordinate
+// check but was invisible on screen: the world map is ~360deg of
+// longitude across ~1200px, so a 0.1-0.5deg offset is well under
+// 1px on screen -- points that are technically distinct still render
+// as one dot. Pixel-space ring offsets (applied post-projection in
+// projectNode()) guarantee a real on-screen gap regardless of zoom
+// or canvas size.
+function pixelRingOffset(index, total) {
+  if (index == null) return { dx:0, dy:0 };
+  const perRing = 8;
+  const ring = Math.floor(index / perRing);
+  const posInRing = index % perRing;
+  const countInRing = Math.min(perRing, total - ring * perRing);
+  const angle = (2 * Math.PI * posInRing) / Math.max(1, countInRing) + ring * 0.35;
+  const radius = 13 + ring * 12; // px; grows per ring so rings don't overlap either -- keeps >=~10px between any two bots sharing a city, for any swarm size
+  return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
+}
+
+// Projects a LAB_NODES entry to screen coords, applying its pixel
+// ring offset (if any) on top of the base lat/lon projection. Use
+// this instead of raw project(node.lat,node.lon,...) for anything
+// that shares a city anchor with other bots.
+function projectNode(node) {
+  const base = project(node.lat, node.lon, W, H);
+  if (node.ring == null) return base;
+  const off = pixelRingOffset(node.ring, node.ringTotal || 1);
+  return { x: base.x + off.dx, y: base.y + off.dy };
+}
+
 for(let i=1; i<=2000; i++){
   // Plain i % length -- NOT i*7 % length. REGIONS.length is 42
   // (divisible by 7), so *7 only ever lands on 6 distinct indices
   // (42/gcd(7,42)=6) no matter how many bots get generated. That
   // was the actual cause of "100 bots, only 6 visible clusters".
-  const r = REGIONS[i % REGIONS.length];
+  const idx0 = i - 1;
+  const r = REGIONS[idx0 % REGIONS.length];
+  const lap = Math.floor(idx0 / REGIONS.length); // which pass through the city list -> ring index
+  const ringTotal = Math.ceil(2000 / REGIONS.length);
   const s = Math.sin(i) * 10000;
   const rand1 = s - Math.floor(s);
   const s2 = Math.cos(i) * 10000;
@@ -75,8 +110,8 @@ for(let i=1; i<=2000; i++){
   ALL_BOTS.push({
     id:"bot"+i, type:"bot", label:"BOT-"+i,
     ip: "10." + Math.floor(rand1*255) + "." + Math.floor(rand2*255) + "." + (i%255),
-    lat: r.lat + (rand1-.5)*0.5,
-    lon: r.lon + (rand2-.5)*0.7,
+    lat: r.lat, lon: r.lon,
+    ring: lap, ringTotal,
     country: r.c
   });
 }
@@ -409,7 +444,7 @@ function drawNodes() {
   // bots reading as "grouped" instead of as separate dots.
 
   for (const node of visibleNodes) {
-    const {x,y} = project(node.lat, node.lon, W, H);
+    const {x,y} = projectNode(node);
     const s = NODE_STYLE[node.type];
 
     if (node.type === "bot") {
@@ -873,7 +908,7 @@ function fireArcs(victimKey, duration, method) {
   for (let w = 0; w < waveCount; w++) {
     const waveStart = t0 + w * WAVE_GAP_MS;
     waveBots.forEach((bot, i) => {
-      const { x:fx, y:fy } = project(bot.lat, bot.lon, W, H);
+      const { x:fx, y:fy } = projectNode(bot);
       arcs.push({ fx, fy, tx, ty, method, color: colorFor(bot), startTime: waveStart + (i % 8) * 18, duration: FLIGHT_S });
     });
   }
@@ -887,7 +922,7 @@ function fireArcs(victimKey, duration, method) {
 let nodeFilterText = "";
 
 function flashNode(node) {
-  const {x,y} = project(node.lat, node.lon, W, H);
+  const {x,y} = projectNode(node);
   let n = 0;
   const id = setInterval(() => {
     if (n++ > 6) { clearInterval(id); return; }
@@ -1096,7 +1131,7 @@ if(clrBtn) clrBtn.addEventListener("click",()=>{ document.getElementById("termin
 let _lastBotTotal=0;
 let _knownBotIps=new Set(); // track per-IP join/leave events
 
-const SIM_BOT_CAP = 100; // cap the simulated swarm size for a clean, individually-visible map
+const SIM_BOT_CAP = 14; // cap the simulated swarm size for a clean, individually-visible map
 
 function applyStatus(data){
   const cncUp = !!data.cnc_up;
@@ -1124,40 +1159,50 @@ function applyStatus(data){
   if (peerIps.length > 0 || bots !== _lastBotTotal) {
     LAB_NODES = [...STATIC_NODES];
     
-    peerIps.forEach((ip, i) => {
+    // Pass 1: resolve each IP's city anchor and bucket by it. Pass 2:
+    // ring-place every bucket's members around their shared anchor so
+    // N bots at one city = N guaranteed-separated dots, never an
+    // overlapping clump (see ringOffset above).
+    const pickCity = (name, seed) => {
+      const cities = REGIONS.filter(x => x.c === name);
+      return cities.length ? cities[seed % cities.length] : REGIONS[seed % REGIONS.length];
+    };
+    const buckets = new Map(); // city object -> [{ip, cleanIp}, ...]
+    peerIps.forEach((ip) => {
       let hash = 0;
-      for(let k=0; k<ip.length; k++) hash = Math.imul(31, hash) + ip.charCodeAt(k) | 0;
+      for (let k=0; k<ip.length; k++) hash = Math.imul(31, hash) + ip.charCodeAt(k) | 0;
       const seed = Math.abs(hash);
-      
-      
-      // Clean IPv4-mapped IPv6 addresses (e.g. ::ffff:110.164.20.213 -> 110.164.20.213)
-      let cleanIp = ip.replace(/^::ffff:/, '');
+      const cleanIp = ip.replace(/^::ffff:/, '');
       const firstOctet = parseInt(cleanIp.split('.')[0] || "10");
 
       let r = REGIONS[seed % REGIONS.length];
+      if (firstOctet === 110 || firstOctet === 125) { r = pickCity("Thailand", seed); }
+      else if (firstOctet === 66) { r = pickCity("USA", seed); }
+      else if (firstOctet === 210) { r = pickCity("South Korea", seed); }
+      else if (firstOctet === 114) { r = pickCity("China", seed); }
+      else if (firstOctet === 95 || firstOctet === 217) { r = pickCity("Russia", seed); }
+      else if (firstOctet === 46) { r = pickCity("Germany", seed); }
+      else if (firstOctet === 177) { r = pickCity("Brazil", seed); }
+      else if (firstOctet === 8) { r = pickCity("United Kingdom", seed); }
+      else if (firstOctet === 1) { r = pickCity("Japan", seed); }
 
-      if (firstOctet === 110 || firstOctet === 125) { r = {lat:15, lon:101, c:"Thailand"}; }
-      else if (firstOctet === 66) { r = {lat:39, lon:-98, c:"USA"}; }
-      else if (firstOctet === 210) { r = {lat:36, lon:128, c:"South Korea"}; }
-      else if (firstOctet === 114) { r = {lat:35, lon:104, c:"China"}; }
-      else if (firstOctet === 95 || firstOctet === 217) { r = {lat:55, lon:37, c:"Russia"}; }
-      else if (firstOctet === 46) { r = {lat:51, lon:10, c:"Germany"}; }
-      else if (firstOctet === 177) { r = {lat:-14, lon:-52, c:"Brazil"}; }
-      else if (firstOctet === 8) { r = {lat:55, lon:-3, c:"United Kingdom"}; }
-      else if (firstOctet === 1) { r = {lat:36, lon:138, c:"Japan"}; }
+      if (!buckets.has(r)) buckets.set(r, []);
+      buckets.get(r).push(cleanIp);
+    });
 
-      const rand1 = ((seed * 9301 + 49297) % 233280) / 233280;
-      const rand2 = ((seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-      const lat = r.lat + (rand1-.5)*0.5;
-      const lon = r.lon + (rand2-.5)*0.7;
-
-      LAB_NODES.push({
-        id: "bot_peer_" + i,
-        type: "bot",
-        label: "BOT-" + (i+1),
-        ip: cleanIp,
-        lat, lon,
-        country: r.c
+    let peerIdx = 0;
+    buckets.forEach((ips, city) => {
+      ips.forEach((cleanIp, k) => {
+        LAB_NODES.push({
+          id: "bot_peer_" + peerIdx,
+          type: "bot",
+          label: "BOT-" + (peerIdx+1),
+          ip: cleanIp,
+          lat: city.lat, lon: city.lon,
+          ring: k, ringTotal: ips.length,
+          country: city.c
+        });
+        peerIdx++;
       });
     });
 
