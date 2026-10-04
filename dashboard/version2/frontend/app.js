@@ -641,13 +641,26 @@ function drawImpacts(now) {
 }
 
 /* ---- MAIN DRAW LOOP -------------------------------------- */
-function drawFrame() {
-  ctx.clearRect(0,0,W,H);
-  drawMap();      // map only, no rain
-  drawArcs();     // attack lines
-  drawNodes();    // bots + victims + c2/loader
-  drawLockLine(); // dashed link from the open HUD panel to its target
-  // NO drawLabels() — labels only via hover tooltip
+// Throttled to ~30fps on purpose. This loop was running unthrottled
+// at full display refresh rate (60-144Hz) doing heavy per-frame work
+// (map + up to ~200 concurrent arc beams now that every bot fires +
+// 100 bot sprites + flickering city-lights) -- that was starving the
+// main thread and showed up as jank/flicker in unrelated UI (e.g. a
+// dropdown opening) because the browser couldn't keep up with both
+// the canvas and normal page compositing at once. 30fps is still
+// smooth for this kind of map and roughly halves the load.
+let _lastFrameTime = 0;
+const FRAME_INTERVAL = 1000/30;
+function drawFrame(ts) {
+  if (ts - _lastFrameTime >= FRAME_INTERVAL) {
+    _lastFrameTime = ts;
+    ctx.clearRect(0,0,W,H);
+    drawMap();      // map only, no rain
+    drawArcs();     // attack lines
+    drawNodes();    // bots + victims + c2/loader
+    drawLockLine(); // dashed link from the open HUD panel to its target
+    // NO drawLabels() — labels only via hover tooltip
+  }
   requestAnimationFrame(drawFrame);
 }
 
@@ -1257,12 +1270,18 @@ document.querySelectorAll(".btn-quick").forEach(b=>{
 });
 
 /* ---- ATTACK BUTTONS -------------------------------------- */
+// Back to native <select> for method/duration. A hand-built
+// position:fixed dropdown was tried here and caused repeated
+// flicker/lag reports -- not worth the risk when a native <select>
+// is 100% reliable (browser-rendered, zero custom positioning/
+// compositing logic to break). Styled as close to the theme as
+// a native control allows.
 document.querySelectorAll(".btn-atk-launch").forEach(btn=>{
   btn.addEventListener("click",async()=>{
     const victim  = btn.dataset.victim;
     const row     = btn.closest(".atk-row");
-    const method  = row?.querySelector('.atk-dd[data-kind="method"]')?.dataset.value || "udp";
-    const dur     = parseInt(row?.querySelector('.atk-dd[data-kind="dur"]')?.dataset.value || "10");
+    const method  = row?.querySelector(".atk-method-select")?.value || "udp";
+    const dur     = parseInt(row?.querySelector(".atk-dur-select")?.value || "10");
     const vnode   = VICTIM_MAP[victim];
     if(!vnode) return;
 
