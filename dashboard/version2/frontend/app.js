@@ -75,8 +75,8 @@ for(let i=1; i<=2000; i++){
   ALL_BOTS.push({
     id:"bot"+i, type:"bot", label:"BOT-"+i,
     ip: "10." + Math.floor(rand1*255) + "." + Math.floor(rand2*255) + "." + (i%255),
-    lat: r.lat + (rand1-.5)*1.6,
-    lon: r.lon + (rand2-.5)*2.2,
+    lat: r.lat + (rand1-.5)*0.5,
+    lon: r.lon + (rand2-.5)*0.7,
     country: r.c
   });
 }
@@ -482,7 +482,7 @@ function drawNodes() {
 /* ---- ATTACK ARCS ----------------------------------------- */
 function bezierPt(p0,p1,p2,t){ return (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2; }
 
-const METHOD_COLOR = { udp:"#ff3333", syn:"#ff8800", default:"#ff3333" };
+const METHOD_COLOR = { udp:"#ff3333", syn:"#ff8800", ack:"#b84dff", stomp:"#ff4da6", default:"#ff3333" };
 
 function drawArcs() {
   const now  = Date.now();
@@ -499,7 +499,7 @@ function drawArcs() {
       // Small hit mark per landed beam -- NOT "big" (that shockwave
       // is reserved for the one-off launch moment; every bot landing
       // getting a 70px ring stacked into a mess during sustained fire).
-      impacts.push({ x:arc.tx, y:arc.ty, time:now, color: METHOD_COLOR[arc.method] || METHOD_COLOR.default });
+      impacts.push({ x:arc.tx, y:arc.ty, time:now, color: arc.color || METHOD_COLOR[arc.method] || METHOD_COLOR.default });
       continue;
     }
     live.push(arc);
@@ -513,7 +513,7 @@ function drawArcs() {
     const prog = Math.min(age/arc.duration, 1);
     const ex = bezierPt(fx,mx,tx,prog);
     const ey = bezierPt(fy,my,ty,prog);
-    const color = METHOD_COLOR[arc.method] || METHOD_COLOR.default;
+    const color = arc.color || METHOD_COLOR[arc.method] || METHOD_COLOR.default;
 
     ctx.save();
     // Soft outer glow -- barely-there, just a halo
@@ -561,6 +561,13 @@ function drawArcs() {
     ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
     ctx.shadowBlur  = 0;
 
+    // Plasma rim -- thin white-hot line straight down the middle of
+    // the hot segment. Two-tone (colored core + white rim) reads as
+    // "plasma/laser", not a flat single-color line.
+    ctx.strokeStyle = "#ffffffcc";
+    ctx.lineWidth   = 0.7;
+    ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke();
+
     // One trailing tracer, dim
     const tp = prog - 0.22;
     if (tp > 0) {
@@ -570,12 +577,31 @@ function drawArcs() {
       ctx.fill();
     }
 
-    // comet head
-    ctx.beginPath(); ctx.arc(ex,ey,2.4,0,Math.PI*2);
-    ctx.fillStyle   = "#fff8e8";
+    // Arrowhead tip -- oriented along the curve's real tangent at
+    // this instant, so it genuinely points where the beam is flying
+    // (not just a dot). Classic "attack vector" visual language.
+    const tdx = 2*(1-prog)*(mx-fx) + 2*prog*(tx-mx);
+    const tdy = 2*(1-prog)*(my-fy) + 2*prog*(ty-my);
+    const ang = Math.atan2(tdy, tdx);
+    const headLen = 8, headWidth = 4.2;
+    const bxp = ex - Math.cos(ang)*headLen, byp = ey - Math.sin(ang)*headLen;
+    const lx = bxp + Math.cos(ang+Math.PI/2)*headWidth, ly = byp + Math.sin(ang+Math.PI/2)*headWidth;
+    const rx = bxp + Math.cos(ang-Math.PI/2)*headWidth, ry = byp + Math.sin(ang-Math.PI/2)*headWidth;
+
     ctx.shadowColor = color;
-    ctx.shadowBlur  = 10;
+    ctx.shadowBlur  = 13;
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(lx,ly);
+    ctx.lineTo(bxp + Math.cos(ang)*2, byp + Math.sin(ang)*2); // slight notch at the back
+    ctx.lineTo(rx,ry);
+    ctx.closePath();
+    ctx.fillStyle = "#fff8e8";
     ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
     ctx.restore();
   }
 
@@ -779,6 +805,25 @@ document.getElementById("hudLaunch")?.addEventListener("click", async ()=>{
    duration (not just the first slice) so the beam stays visible
    for as long as the attack command is actually running.
    ----------------------------------------------------------- */
+// Curated vivid palette -- random hue per launch reads as "beautiful
+// fireworks variety"; raw random RGB/HSL risks muddy, ugly colors.
+const BURST_PALETTE = ["#ff3333","#ff8800","#b84dff","#ff4da6","#ffe033","#22e0ff","#39ff6a","#ff5fa2"];
+
+// Fixed colour per region -- used only in "zone" beam-colour mode.
+const ZONE_COLOR = {
+  USA:"#ff3333", Mexico:"#ff3333", Brazil:"#ff8800", Argentina:"#ff8800",
+  Germany:"#b84dff", France:"#b84dff", Spain:"#b84dff", "United Kingdom":"#b84dff", Poland:"#b84dff", Italy:"#b84dff",
+  Russia:"#ff4da6", "Middle East":"#ff4da6",
+  India:"#22e0ff", China:"#22e0ff", Japan:"#22e0ff", "South Korea":"#22e0ff", Thailand:"#22e0ff", Indonesia:"#22e0ff",
+  Australia:"#39ff6a",
+  "Central Africa":"#ffe033",
+};
+
+/* ---- Beam colour mode (RANDOM / UNIFORM / ZONE) -------------
+   Selectable from the VIEW dropdown. ---- */
+let beamColorMode = "random";
+const BEAM_MODES = [["random","Random (per bot)"],["uniform","Uniform (per attack)"],["zone","Zone (per region)"]];
+
 function fireArcs(victimKey, duration, method) {
   const victim = VICTIM_MAP[victimKey];
   if (!victim) return;
@@ -786,19 +831,33 @@ function fireArcs(victimKey, duration, method) {
   const bots = LAB_NODES.filter(n => n.type === "bot");
   if (!bots.length) return;
 
-  const MAX_PER_WAVE = 26;      // cap concurrent beams for smooth 60fps
+  // Swarm is capped at 100 now (SIM_BOT_CAP) -- every bot fires,
+  // none sit idle as decoration. Wave gap widened a bit so overlap
+  // stays reasonable even with the full roster participating.
   const FLIGHT_S     = 0.85;    // single beam travel time
-  const WAVE_GAP_MS  = 340;     // new wave launches every N ms
-  const waveBots     = bots.slice(0, MAX_PER_WAVE);
+  const WAVE_GAP_MS  = 420;     // new wave launches every N ms
+  const waveBots     = bots;
   const totalMs       = Math.max(duration, 1) * 1000;
   const waveCount      = Math.max(1, Math.round(totalMs / WAVE_GAP_MS));
   const t0 = Date.now();
+  // Colour assignment depends on beamColorMode (VIEW menu):
+  //  - random:  each bot gets its own random colour (many colours per launch)
+  //  - uniform: one random colour for the whole launch
+  //  - zone:    colour fixed by the bot's region
+  const uniformColor = BURST_PALETTE[Math.floor(Math.random()*BURST_PALETTE.length)];
+  const botColors = new Map();
+  const colorFor = (bot) => {
+    if (beamColorMode === "uniform") return uniformColor;
+    if (beamColorMode === "zone") return ZONE_COLOR[bot.country] || METHOD_COLOR.default;
+    if (!botColors.has(bot.id)) botColors.set(bot.id, BURST_PALETTE[Math.floor(Math.random()*BURST_PALETTE.length)]);
+    return botColors.get(bot.id);
+  };
 
   for (let w = 0; w < waveCount; w++) {
     const waveStart = t0 + w * WAVE_GAP_MS;
     waveBots.forEach((bot, i) => {
       const { x:fx, y:fy } = project(bot.lat, bot.lon, W, H);
-      arcs.push({ fx, fy, tx, ty, method, startTime: waveStart + (i % 8) * 18, duration: FLIGHT_S });
+      arcs.push({ fx, fy, tx, ty, method, color: colorFor(bot), startTime: waveStart + (i % 8) * 18, duration: FLIGHT_S });
     });
   }
 }
@@ -1072,8 +1131,8 @@ function applyStatus(data){
 
       const rand1 = ((seed * 9301 + 49297) % 233280) / 233280;
       const rand2 = ((seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-      const lat = r.lat + (rand1-.5)*1.6;
-      const lon = r.lon + (rand2-.5)*2.2;
+      const lat = r.lat + (rand1-.5)*0.5;
+      const lon = r.lon + (rand2-.5)*0.7;
 
       LAB_NODES.push({
         id: "bot_peer_" + i,
@@ -1280,6 +1339,11 @@ document.getElementById("btn-toggle-loader-node")?.addEventListener("click",(e)=
   hideLoaderNode = !hideLoaderNode;
   e.currentTarget.classList.toggle("active", hideLoaderNode);
   e.currentTarget.textContent = hideLoaderNode ? "[SHOW LDR.DOT]" : "[HIDE LDR.DOT]";
+});
+document.getElementById("btn-beam-color")?.addEventListener("click",(e)=>{
+  const idx = BEAM_MODES.findIndex(([k]) => k === beamColorMode);
+  beamColorMode = BEAM_MODES[(idx+1) % BEAM_MODES.length][0];
+  e.currentTarget.textContent = "Beam colour: " + BEAM_MODES.find(([k]) => k === beamColorMode)[1];
 });
 document.getElementById("btn-focus-map")?.addEventListener("click",(e)=>{document.body.classList.toggle("focus-map");e.currentTarget.classList.toggle("active",document.body.classList.contains("focus-map"));resize();});
 
